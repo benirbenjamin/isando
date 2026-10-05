@@ -86,8 +86,13 @@ router.post('/signup', async (req, res) => {
       console.warn('OTP save notice:', e.message);
     }
 
-    // Send Email via Resend API / SMTP (NEVER expose OTP in response!)
-    await sendOtpEmail(cleanEmail, code).catch(err => console.warn('Email dispatch notice:', err.message));
+    // Send Email via Resend API / SMTP
+    const emailResult = await sendOtpEmail(cleanEmail, code);
+    if (!emailResult.success) {
+      return res.status(400).json({
+        error: `Email could not be delivered: ${emailResult.error}`,
+      });
+    }
 
     return res.json({
       message: 'Verification code sent to your email address.',
@@ -169,9 +174,12 @@ router.post('/request-otp', async (req, res) => {
     }
 
     // Send Email (NEVER expose OTP code in JSON API response payload!)
-    await sendOtpEmail(cleanEmail, code).catch(emailErr => {
-      console.warn('Email dispatch notice:', emailErr.message);
-    });
+    const emailResult = await sendOtpEmail(cleanEmail, code);
+    if (!emailResult.success) {
+      return res.status(400).json({
+        error: `Email could not be delivered: ${emailResult.error}`,
+      });
+    }
 
     return res.json({
       message: 'Verification code sent to your email address.',

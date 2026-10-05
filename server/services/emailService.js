@@ -37,17 +37,22 @@ export async function sendEmail({ to, subject, html, text }) {
         text,
       });
 
-      if (data && !data.error) {
-        console.log(`✅ Email sent successfully via Resend API to ${to}`);
+      if (data && !data.error && data.id) {
+        console.log(`✅ Email sent successfully via Resend API to ${to} (ID: ${data.id})`);
         return { success: true, provider: 'Resend', id: data.id };
       }
+
       if (data?.error) {
-        errors.push(`Resend error: ${data.error.message || JSON.stringify(data.error)}`);
+        const errMsg = data.error.message || JSON.stringify(data.error);
+        console.warn(`❌ Resend API returned error: ${errMsg}`);
+        errors.push(`Resend error: ${errMsg}`);
       }
     } catch (err) {
-      console.warn(`⚠️ Resend API failed: ${err.message}. Falling back to SMTP...`);
+      console.warn(`⚠️ Resend API exception: ${err.message}.`);
       errors.push(`Resend exception: ${err.message}`);
     }
+  } else {
+    errors.push('RESEND_API_KEY is not configured in Vercel environment variables or database settings.');
   }
 
   // Attempt 2: SMTP Fallback
@@ -80,23 +85,18 @@ export async function sendEmail({ to, subject, html, text }) {
     }
   }
 
-  // Attempt 3: Development console logger fallback
+  // If both Resend and SMTP failed
+  const primaryError = errors[0] || 'Email could not be delivered';
   console.log('====================================================');
-  console.log(`📧 [DEV EMAIL SIMULATION]`);
-  console.log(`FROM: ${customFromEmail}`);
+  console.log(`📧 [EMAIL DELIVERY FAILED]`);
   console.log(`TO: ${to}`);
-  console.log(`SUBJECT: ${subject}`);
-  console.log(`BODY TEXT: ${text || html}`);
-  if (errors.length > 0) {
-    console.log(`ERRORS ENCOUNTERED: ${errors.join(' | ')}`);
-  }
+  console.log(`REASON: ${primaryError}`);
   console.log('====================================================');
 
   return {
-    success: true,
-    provider: 'CONSOLE_SIMULATION',
-    simulated: true,
-    message: 'Email logged to console as fallback',
+    success: false,
+    provider: 'FAILED',
+    error: primaryError,
     errors,
   };
 }
