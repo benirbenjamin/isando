@@ -23,21 +23,33 @@ router.get('/', async (req, res) => {
     };
 
     if (division) {
-      where.businessDivision = {
-        OR: [
-          { slug: division },
-          { name: { contains: division } }
-        ]
-      };
+      const foundDiv = await prisma.businessDivision.findFirst({
+        where: {
+          OR: [
+            { slug: division },
+            { name: division },
+            { name: { contains: division } }
+          ]
+        }
+      });
+      if (foundDiv) {
+        where.businessDivisionId = foundDiv.id;
+      }
     }
 
     if (category) {
-      where.category = {
-        OR: [
-          { slug: category },
-          { name: { contains: category } }
-        ]
-      };
+      const foundCat = await prisma.category.findFirst({
+        where: {
+          OR: [
+            { slug: category },
+            { name: category },
+            { name: { contains: category } }
+          ]
+        }
+      });
+      if (foundCat) {
+        where.categoryId = foundCat.id;
+      }
     }
 
     if (search) {
