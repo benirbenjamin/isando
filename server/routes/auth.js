@@ -103,7 +103,21 @@ router.post('/request-otp', async (req, res) => {
     let user = await prisma.user.findUnique({ where: { email: cleanEmail } });
 
     if (!user) {
-      return res.status(404).json({ error: 'No account found with this email address. Please sign up first.' });
+      const defaultRole = await prisma.role.findFirst({
+        where: { name: { in: ['Sales Staff', 'User', 'Staff'] } }
+      }) || await prisma.role.findFirst();
+
+      const defaultDepartment = await prisma.department.findFirst();
+
+      user = await prisma.user.create({
+        data: {
+          email: cleanEmail,
+          fullName: cleanEmail.split('@')[0],
+          roleId: defaultRole?.id,
+          departmentId: defaultDepartment?.id,
+          status: 'ACTIVE',
+        }
+      });
     }
 
     if (user.status !== 'ACTIVE') {

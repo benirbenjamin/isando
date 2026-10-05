@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Sparkles, MessageCircle, HeartHandshake, Briefcase, ArrowRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Sparkles, MessageCircle, HeartHandshake, Briefcase, ArrowRight, Utensils, Shirt, Flame } from 'lucide-react';
 import { api, getWhatsAppLink } from '../services/api';
 import ProductCard from '../components/ProductCard';
 import ServiceCard from '../components/ServiceCard';
@@ -8,11 +8,13 @@ import ServiceCard from '../components/ServiceCard';
 export default function HomePage() {
   const [divisions, setDivisions] = useState([]);
   const [featuredItems, setFeaturedItems] = useState([]);
+  const [foodProducts, setFoodProducts] = useState([]);
+  const [clothesProducts, setClothesProducts] = useState([]);
   const [specialOffers, setSpecialOffers] = useState([]);
   const [newArrivals, setNewArrivals] = useState([]);
   const [weddingServices, setWeddingServices] = useState([]);
   const [consultancyServices, setConsultancyServices] = useState([]);
-  const [popularProducts, setPopularProducts] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -20,35 +22,33 @@ export default function HomePage() {
     async function loadData() {
       try {
         const [divRes, prodRes, srvRes] = await Promise.all([
-          api.get('/divisions'),
-          api.get('/products?limit=50'),
-          api.get('/services?limit=50')
+          api.get('/divisions').catch(() => ({ divisions: [] })),
+          api.get('/products?limit=100').catch(() => ({ products: [] })),
+          api.get('/services?limit=100').catch(() => ({ services: [] }))
         ]);
 
-        const allProducts = prodRes.products || [];
-        const allServices = srvRes.services || [];
+        const prods = prodRes.products || [];
+        const srvs = srvRes.services || [];
 
         setDivisions(divRes.divisions || []);
+        setAllProducts(prods);
 
-        // Featured items slider (products + services marked as featured)
-        const featP = allProducts.filter(p => p.isFeatured).map(p => ({ ...p, _type: 'product' }));
-        const featS = allServices.filter(s => s.isFeatured).map(s => ({ ...s, _type: 'service' }));
+        // Featured Slider items
+        const featP = prods.filter(p => p.isFeatured).map(p => ({ ...p, _type: 'product' }));
+        const featS = srvs.filter(s => s.isFeatured).map(s => ({ ...s, _type: 'service' }));
         setFeaturedItems([...featP, ...featS]);
 
-        // Special Offers (% On sale products)
-        setSpecialOffers(allProducts.filter(p => p.discountPercentage > 0).sort((a, b) => b.discountPercentage - a.discountPercentage));
+        // Division specific product scrollers
+        setFoodProducts(prods.filter(p => p.businessDivision?.slug === 'food-beverages' || p.businessDivision?.name?.includes('Food')));
+        setClothesProducts(prods.filter(p => p.businessDivision?.slug === 'clothes-shoes' || p.businessDivision?.name?.includes('Clothes')));
 
-        // New Arrivals
-        setNewArrivals(allProducts.filter(p => p.isNewArrival || p.createdAt));
+        // Special Offers & New Arrivals
+        setSpecialOffers(prods.filter(p => p.discountPercentage > 0).sort((a, b) => b.discountPercentage - a.discountPercentage));
+        setNewArrivals(prods.filter(p => p.isNewArrival || p.createdAt));
 
-        // Wedding Services
-        setWeddingServices(allServices.filter(s => s.businessDivision?.slug === 'wedding-services' || s.businessDivision?.name?.includes('Wedding')));
-
-        // Consultancy Services
-        setConsultancyServices(allServices.filter(s => s.businessDivision?.slug === 'consultancy-services' || s.businessDivision?.name?.includes('Consultancy')));
-
-        // Popular products
-        setPopularProducts(allProducts.slice(0, 8));
+        // Wedding Services & Consultancy Services
+        setWeddingServices(srvs.filter(s => s.businessDivision?.slug === 'wedding-services' || s.businessDivision?.name?.includes('Wedding')));
+        setConsultancyServices(srvs.filter(s => s.businessDivision?.slug === 'consultancy-services' || s.businessDivision?.name?.includes('Consultancy')));
       } catch (err) {
         console.error('Error loading homepage data:', err);
       } finally {
@@ -59,7 +59,7 @@ export default function HomePage() {
     loadData();
   }, []);
 
-  // Auto slide featured items
+  // Auto slide featured spotlight
   useEffect(() => {
     if (featuredItems.length <= 1) return;
     const interval = setInterval(() => {
@@ -71,21 +71,21 @@ export default function HomePage() {
   const scrollContainer = (id, direction) => {
     const container = document.getElementById(id);
     if (container) {
-      const scrollAmount = direction === 'left' ? -300 : 300;
+      const scrollAmount = direction === 'left' ? -320 : 320;
       container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
     }
   };
 
   return (
     <div className="space-y-12 pb-12">
-      {/* 1. Hero / Business Divisions Banner */}
+      {/* 1. Hero / Business Divisions Cards Grid */}
       <section className="max-w-7xl mx-auto px-4 pt-6">
         <div className="mb-4">
           <h2 className="text-2xl sm:text-3xl font-black text-brand-dark relative inline-block pb-2">
             Our Business Divisions
             <span className="absolute bottom-0 left-0 w-12 h-1 bg-brand-yellow rounded-full" />
           </h2>
-          <p className="text-sm text-brand-muted mt-1">Four major divisions, one trusted Rwandan company</p>
+          <p className="text-sm text-brand-muted mt-1">Four major divisions under Romantic T Solutions Ltd</p>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -100,7 +100,7 @@ export default function HomePage() {
                 alt={div.name}
                 className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 opacity-90"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
               {div.tag && (
                 <span className="absolute top-3 left-3 bg-brand-red text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow animate-pulse">
                   {div.tag}
@@ -119,7 +119,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 2. Database-Driven Featured Slider */}
+      {/* 2. Interactive Featured Spotlight Slider */}
       {featuredItems.length > 0 && (
         <section className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between mb-4">
@@ -142,7 +142,7 @@ export default function HomePage() {
                     alt={item.name}
                     className="w-full h-full object-cover"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/40 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/40 to-transparent" />
                   <div className="absolute bottom-8 left-6 sm:left-10 max-w-lg text-white space-y-2">
                     <span className="bg-brand-yellow text-brand-dark text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider inline-block">
                       {item.businessDivision?.name || 'FEATURED'}
@@ -179,13 +179,88 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* 3. Special Offers (% On Sale) Scroller */}
+      {/* 3. Food & Beverages Products (Sliding Scroller) */}
+      {foodProducts.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
+                <Utensils className="w-6 h-6 text-brand-yellow" />
+                <span>Food & Beverages</span>
+              </h2>
+              <p className="text-xs text-brand-muted">Juices, crate drinks, wholesale rice & food supplies</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Link to="/products?division=Food%20%26%20Beverages" className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
+                View All Food &rarr;
+              </Link>
+              <div className="flex gap-1">
+                <button onClick={() => scrollContainer('food-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button onClick={() => scrollContainer('food-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div id="food-scroller" className="flex gap-4 overflow-x-auto no-scrollbar py-2">
+            {foodProducts.map(product => (
+              <div key={product.id} className="w-64 flex-shrink-0">
+                <ProductCard product={product} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* 4. Clothes & Shoes Products (Sliding Scroller) */}
+      {clothesProducts.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
+                <Shirt className="w-6 h-6 text-brand-red" />
+                <span>Clothes & Shoes</span>
+              </h2>
+              <p className="text-xs text-brand-muted">Sneakers, dresses, T-shirts & fashion apparel</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Link to="/products?division=Clothes%20%26%20Shoes" className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
+                View All Fashion &rarr;
+              </Link>
+              <div className="flex gap-1">
+                <button onClick={() => scrollContainer('clothes-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button onClick={() => scrollContainer('clothes-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div id="clothes-scroller" className="flex gap-4 overflow-x-auto no-scrollbar py-2">
+            {clothesProducts.map(product => (
+              <div key={product.id} className="w-64 flex-shrink-0">
+                <ProductCard product={product} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* 5. Special Offers (% On Sale) Sliding Scroller */}
       {specialOffers.length > 0 && (
         <section className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-2xl font-black text-brand-dark">🔥 Special Offers</h2>
-              <p className="text-xs text-brand-muted">Limited-time discounted prices</p>
+              <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
+                <Flame className="w-6 h-6 text-brand-red" />
+                <span>Special Offers & Discounts</span>
+              </h2>
+              <p className="text-xs text-brand-muted">Limited-time discounted prices with auto-calculated % OFF</p>
             </div>
             <div className="flex gap-1">
               <button onClick={() => scrollContainer('offers-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
@@ -207,7 +282,7 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* 4. Featured Wedding Services Band */}
+      {/* 6. Wedding & Event Services Sliding Scroller */}
       <section className="max-w-7xl mx-auto px-4">
         <div className="bg-gradient-to-r from-amber-50 via-rose-50 to-amber-100 rounded-3xl p-6 sm:p-8 border border-brand-border relative overflow-hidden shadow-inner">
           <div className="flex items-center justify-between mb-6 relative z-10">
@@ -216,11 +291,21 @@ export default function HomePage() {
                 <HeartHandshake className="w-7 h-7 text-brand-red" />
                 <span>Wedding & Event Services</span>
               </h2>
-              <p className="text-sm text-brand-muted">Make your big day in Rwanda unforgettable</p>
+              <p className="text-sm text-brand-muted">Photography, videography, catering, decor & cars</p>
             </div>
-            <Link to="/services?division=Wedding%20Services" className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
-              View All Wedding Services &rarr;
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link to="/services?division=Wedding%20Services" className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
+                View All Wedding Services &rarr;
+              </Link>
+              <div className="flex gap-1">
+                <button onClick={() => scrollContainer('wedding-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button onClick={() => scrollContainer('wedding-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
           </div>
 
           <div id="wedding-scroller" className="flex gap-5 overflow-x-auto no-scrollbar py-2 relative z-10">
@@ -233,14 +318,14 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 5. Consultancy Services Section */}
+      {/* 7. Consultancy Services Section */}
       <section className="max-w-7xl mx-auto px-4">
         <div className="mb-4">
           <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
             <Briefcase className="w-6 h-6 text-brand-yellow" />
             <span>Consultancy Services</span>
           </h2>
-          <p className="text-xs text-brand-muted">Expert advice to grow your business & manage events</p>
+          <p className="text-xs text-brand-muted">Expert business strategy, event planning & procurement advice</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
@@ -264,76 +349,36 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 6. Popular Picks Grid */}
-      {popularProducts.length > 0 && (
+      {/* 8. All Products Catalog Grid */}
+      {allProducts.length > 0 && (
         <section className="max-w-7xl mx-auto px-4">
-          <div className="mb-4">
-            <h2 className="text-2xl font-black text-brand-dark">Popular Products</h2>
-            <p className="text-xs text-brand-muted">Trending in store right now</p>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-2xl font-black text-brand-dark">All Products Catalog</h2>
+              <p className="text-xs text-brand-muted">Explore items across all divisions</p>
+            </div>
+            <Link to="/products" className="text-xs font-bold text-brand-red hover:underline">
+              View All Products ({allProducts.length}) &rarr;
+            </Link>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {popularProducts.map(product => (
+            {allProducts.slice(0, 8).map(product => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
         </section>
       )}
 
-      {/* 7. Corporate Introduction */}
-      <section className="max-w-7xl mx-auto px-4 pt-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center bg-brand-soft border border-brand-border rounded-3xl p-6 sm:p-10">
-          <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-brand-red">ABOUT US</span>
-            <h2 className="text-2xl sm:text-3xl font-black text-brand-dark mt-1 mb-3">
-              Romantic T Solutions Ltd
-            </h2>
-            <p className="text-sm text-gray-600 leading-relaxed mb-4">
-              We bring Food & Beverages, Fashion Apparel, Wedding Services, and Professional Consultancy together under one trusted business brand in Rwanda. Quality products, reliable teams, and friendly service ordered in minutes through WhatsApp.
-            </p>
-
-            <div className="flex gap-6 mb-6">
-              <div>
-                <b className="text-2xl font-black text-brand-red block">4</b>
-                <span className="text-xs text-brand-muted font-semibold">Divisions</span>
-              </div>
-              <div>
-                <b className="text-2xl font-black text-brand-red block">100+</b>
-                <span className="text-xs text-brand-muted font-semibold">Events Served</span>
-              </div>
-              <div>
-                <b className="text-2xl font-black text-brand-red block">100%</b>
-                <span className="text-xs text-brand-muted font-semibold">Trusted Quality</span>
-              </div>
-            </div>
-
-            <Link
-              to="/about"
-              className="inline-block bg-brand-yellow hover:bg-brand-yellowDark text-brand-dark font-bold text-sm px-6 py-2.5 rounded-full shadow transition"
-            >
-              Learn More About Us
-            </Link>
-          </div>
-
-          <div className="aspect-[4/3] rounded-2xl overflow-hidden shadow-lg border border-white">
-            <img
-              src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=800&q=70"
-              alt="Romantic T Solutions Team"
-              className="w-full h-full object-cover"
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* 8. WhatsApp CTA Banner */}
+      {/* 9. Direct WhatsApp Order Banner */}
       <section className="max-w-7xl mx-auto px-4">
         <div className="bg-gradient-to-r from-[#25D366] to-[#128C7E] rounded-3xl p-8 text-white flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl">
           <div>
-            <h3 className="text-2xl font-black mb-1">Ready to Order or Book an Event?</h3>
-            <p className="text-sm opacity-90">Chat directly with our team on WhatsApp for availability and custom pricing.</p>
+            <h3 className="text-2xl font-black mb-1">Ready to Order or Book Services?</h3>
+            <p className="text-sm opacity-90">Chat directly with our team on WhatsApp for availability and instant pricing.</p>
           </div>
           <a
-            href={getWhatsAppLink('250786639945', 'Hello Romantic T Solutions, I am interested in ordering/booking services.')}
+            href={getWhatsAppLink('250786639945', 'Hello Romantic T Solutions, I am interested in ordering/booking.')}
             target="_blank"
             rel="noreferrer"
             className="bg-white text-[#128C7E] hover:bg-gray-100 font-extrabold text-sm px-7 py-3 rounded-full shadow-lg shine-effect transition flex-shrink-0 flex items-center gap-2"
