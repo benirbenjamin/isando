@@ -15,68 +15,84 @@ export function getWhatsAppLink(phone = '250786639945', message = '') {
   return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
 }
 
-async function request(endpoint, options = {}, retries = 1) {
-  const token = localStorage.getItem('romantic_token');
-  const headers = {
-    ...options.headers,
-  };
+/**
+ * Native XMLHttpRequest transport (Completely replaces fetch)
+ */
+function xhrRequest(method, endpoint, data = null, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const url = `${API_BASE}${endpoint}`;
 
-  if (!(options.body instanceof FormData)) {
-    headers['Content-Type'] = 'application/json';
-  }
+    xhr.open(method, url, true);
+    xhr.timeout = 25000;
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  try {
-    const response = await fetch(`${API_BASE}${endpoint}`, {
-      ...options,
-      headers,
-    });
-
-    const text = await response.text();
-    let data = {};
-    try {
-      data = JSON.parse(text);
-    } catch {
-      data = { rawText: text };
+    const token = localStorage.getItem('romantic_token');
+    if (token) {
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     }
 
-    if (!response.ok) {
-      if (response.status === 500 && retries > 0) {
-        console.warn(`Retrying request to ${endpoint}...`);
-        await new Promise(r => setTimeout(r, 1000));
-        return request(endpoint, options, retries - 1);
+    let payload = data;
+    if (data && !(data instanceof FormData)) {
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      payload = JSON.stringify(data);
+    }
+
+    for (const [key, value] of Object.entries(headers)) {
+      xhr.setRequestHeader(key, value);
+    }
+
+    xhr.onload = function () {
+      let responseData = {};
+      try {
+        responseData = JSON.parse(xhr.responseText);
+      } catch {
+        responseData = { rawText: xhr.responseText };
       }
 
-      const message = data.error || data.message || (typeof data.rawText === 'string' && data.rawText.length < 150 ? data.rawText : null) || `Server Error ${response.status}: ${response.statusText || 'Internal Server Error'}`;
-      const error = new Error(message);
-      error.status = response.status;
-      error.data = data;
-      throw error;
-    }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(responseData);
+      } else {
+        const message =
+          responseData.error ||
+          responseData.message ||
+          (typeof responseData.rawText === 'string' && responseData.rawText.length < 150 ? responseData.rawText : null) ||
+          `Server Error (${xhr.status}: ${xhr.statusText || 'Internal Server Error'})`;
 
-    return data;
+        const error = new Error(message);
+        error.status = xhr.status;
+        error.data = responseData;
+        reject(error);
+      }
+    };
+
+    xhr.onerror = function () {
+      reject(new Error('Network connection error. Please verify your internet connection.'));
+    };
+
+    xhr.ontimeout = function () {
+      reject(new Error('Server request timed out. Please try again.'));
+    };
+
+    xhr.send(payload);
+  });
+}
+
+// Automatic retry for serverless cold-starts
+async function requestWithRetry(method, endpoint, data = null, headers = {}, retries = 1) {
+  try {
+    return await xhrRequest(method, endpoint, data, headers);
   } catch (err) {
-    if (err.status) throw err;
-    if (retries > 0) {
+    if (retries > 0 && (!err.status || err.status >= 500)) {
       await new Promise(r => setTimeout(r, 1000));
-      return request(endpoint, options, retries - 1);
+      return requestWithRetry(method, endpoint, data, headers, retries - 1);
     }
-    throw new Error(err.message || 'Network connection issue. Please try again.');
+    throw err;
   }
 }
 
 export const api = {
-  get: (endpoint) => request(endpoint, { method: 'GET' }),
-  post: (endpoint, body) => request(endpoint, {
-    method: 'POST',
-    body: body instanceof FormData ? body : JSON.stringify(body),
-  }),
-  put: (endpoint, body) => request(endpoint, {
-    method: 'PUT',
-    body: body instanceof FormData ? body : JSON.stringify(body),
-  }),
-  delete: (endpoint) => request(endpoint, { method: 'DELETE' }),
+  get: (endpoint) => requestWithRetry('GET', endpoint),
+  post: (endpoint, body) => requestWithRetry('POST', endpoint, body),
+  put: (endpoint, body) => requestWithRetry('PUT', endpoint, body),
+  delete: (endpoint) => requestWithRetry('DELETE', endpoint),
 };
