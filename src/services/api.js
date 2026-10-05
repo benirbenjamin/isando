@@ -15,7 +15,7 @@ export function getWhatsAppLink(phone = '250786639945', message = '') {
   return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
 }
 
-async function request(endpoint, options = {}) {
+async function request(endpoint, options = {}, retries = 1) {
   const token = localStorage.getItem('romantic_token');
   const headers = {
     ...options.headers,
@@ -29,21 +29,43 @@ async function request(endpoint, options = {}) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  try {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      ...options,
+      headers,
+    });
 
-  const data = await response.json().catch(() => ({}));
+    const text = await response.text();
+    let data = {};
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { rawText: text };
+    }
 
-  if (!response.ok) {
-    const error = new Error(data.error || 'An error occurred during request');
-    error.status = response.status;
-    error.data = data;
-    throw error;
+    if (!response.ok) {
+      if (response.status === 500 && retries > 0) {
+        console.warn(`Retrying request to ${endpoint}...`);
+        await new Promise(r => setTimeout(r, 1000));
+        return request(endpoint, options, retries - 1);
+      }
+
+      const message = data.error || data.message || (typeof data.rawText === 'string' && data.rawText.length < 150 ? data.rawText : null) || `Server Error ${response.status}: ${response.statusText || 'Internal Server Error'}`;
+      const error = new Error(message);
+      error.status = response.status;
+      error.data = data;
+      throw error;
+    }
+
+    return data;
+  } catch (err) {
+    if (err.status) throw err;
+    if (retries > 0) {
+      await new Promise(r => setTimeout(r, 1000));
+      return request(endpoint, options, retries - 1);
+    }
+    throw new Error(err.message || 'Network connection issue. Please try again.');
   }
-
-  return data;
 }
 
 export const api = {
