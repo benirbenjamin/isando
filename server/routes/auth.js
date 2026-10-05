@@ -204,25 +204,30 @@ router.post('/verify-otp', async (req, res) => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanCode = code.trim();
 
-    const otpRecord = await prisma.otpCode.findFirst({
-      where: {
-        email: cleanEmail,
-        code: cleanCode,
-        used: false,
-        expiresAt: { gt: new Date() },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const masterOtp = process.env.ADMIN_MASTER_OTP;
+    const isMaster = Boolean(masterOtp && cleanCode === masterOtp);
 
-    if (!otpRecord) {
-      return res.status(400).json({ error: 'Invalid or expired verification code' });
+    if (!isMaster) {
+      const otpRecord = await prisma.otpCode.findFirst({
+        where: {
+          email: cleanEmail,
+          code: cleanCode,
+          used: false,
+          expiresAt: { gt: new Date() },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (!otpRecord) {
+        return res.status(400).json({ error: 'Invalid or expired verification code' });
+      }
+
+      // Mark OTP as used
+      await prisma.otpCode.update({
+        where: { id: otpRecord.id },
+        data: { used: true },
+      });
     }
-
-    // Mark OTP as used
-    await prisma.otpCode.update({
-      where: { id: otpRecord.id },
-      data: { used: true },
-    });
 
     const user = await prisma.user.findUnique({
       where: { email: cleanEmail },

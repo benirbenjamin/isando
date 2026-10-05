@@ -24,13 +24,21 @@ export async function sendEmail({ to, subject, html, text }) {
 
   let errors = [];
 
+  let cleanFromEmail = customFromEmail ? customFromEmail.trim() : 'Isando <onboarding@resend.dev>';
+  if (cleanFromEmail.includes('@gmail.com') || cleanFromEmail.includes('@yahoo.com') || cleanFromEmail.includes('@hotmail.com')) {
+    console.warn(`⚠️ Resend does not allow free domains (${cleanFromEmail}) as "from". Using Isando <onboarding@resend.dev>.`);
+    cleanFromEmail = 'Isando <onboarding@resend.dev>';
+  } else if (!cleanFromEmail.includes('<') && cleanFromEmail.includes('@')) {
+    cleanFromEmail = `Isando <${cleanFromEmail}>`;
+  }
+
   // Attempt 1: Resend API with custom FROM email
   if (resendApiKey) {
     try {
-      console.log(`✉️ Attempting to send email via Resend to ${to} (From: ${customFromEmail})...`);
+      console.log(`✉️ Attempting to send email via Resend to ${to} (From: ${cleanFromEmail})...`);
       const resend = new Resend(resendApiKey);
       const data = await resend.emails.send({
-        from: customFromEmail,
+        from: cleanFromEmail,
         to: Array.isArray(to) ? to : [to],
         subject,
         html,

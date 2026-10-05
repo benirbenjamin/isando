@@ -140,7 +140,7 @@ export default function LoginPage() {
               </div>
               <h2 className="text-lg font-black text-brand-dark">Enter Verification Code</h2>
               <p className="text-xs text-gray-500 mt-1">
-                A 6-digit code has been sent to your email inbox
+                Please check your inbox and <strong>Spam / Junk folder</strong> for your code.
               </p>
             </div>
 
