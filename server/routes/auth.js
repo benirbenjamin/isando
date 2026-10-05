@@ -8,31 +8,60 @@ const router = express.Router();
 const prisma = new PrismaClient();
 
 /**
- * 1. Request OTP Code for Email Login
+ * 1. User Signup (Full Name + Email -> OTP Code sent to email)
  */
-router.post('/request-otp', async (req, res) => {
+router.post('/signup', async (req, res) => {
   try {
-    const { email } = req.body;
-    if (!email || !email.includes('@')) {
-      return res.status(400).json({ error: 'A valid email address is required' });
+    const { fullName, email, phone } = req.body;
+    if (!fullName || !email || !email.includes('@')) {
+      return res.status(400).json({ error: 'Full Name and a valid email address are required' });
     }
 
     const cleanEmail = email.trim().toLowerCase();
+    const cleanName = fullName.trim();
+
+    // Check if user exists, or create new user account
     let user = await prisma.user.findUnique({ where: { email: cleanEmail } });
 
     if (!user) {
-      return res.status(404).json({ error: 'No account found with this email address. Please contact an administrator.' });
+      // Find or assign default 'Staff' or 'User' role
+      const defaultRole = await prisma.role.findFirst({
+        where: { name: { in: ['Sales Staff', 'User', 'Staff'] } }
+      }) || await prisma.role.findFirst();
+
+      const defaultDepartment = await prisma.department.findFirst();
+
+      user = await prisma.user.create({
+        data: {
+          email: cleanEmail,
+          fullName: cleanName,
+          phone: phone ? phone.trim() : null,
+          roleId: defaultRole?.id,
+          departmentId: defaultDepartment?.id,
+          status: 'ACTIVE',
+        }
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          userId: user.id,
+          action: 'USER_SELF_SIGNUP',
+          entity: 'User',
+          entityId: user.id,
+          metadata: JSON.stringify({ email: cleanEmail, fullName: cleanName }),
+        }
+      });
     }
 
     if (user.status !== 'ACTIVE') {
-      return res.status(403).json({ error: 'Your account is deactivated.' });
+      return res.status(403).json({ error: 'Your account is deactivated. Please contact an administrator.' });
     }
 
-    // Generate 6-digit numeric OTP code
+    // Generate 6-digit OTP code
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    // Invalidate old unused OTPs for this email
+    // Invalidate previous OTPs for this email
     await prisma.otpCode.updateMany({
       where: { email: cleanEmail, used: false },
       data: { used: true },
@@ -47,15 +76,65 @@ router.post('/request-otp', async (req, res) => {
       },
     });
 
-    // Send Email (Resend -> SMTP -> Console simulation)
-    const emailResult = await sendOtpEmail(cleanEmail, code);
+    // Send Email via Resend API / SMTP (NEVER expose OTP in response!)
+    await sendOtpEmail(cleanEmail, code);
 
     return res.json({
       message: 'Verification code sent to your email address.',
       email: cleanEmail,
-      provider: emailResult.provider,
-      // For development/demo, expose OTP if simulated
-      devCode: emailResult.simulated ? code : undefined,
+    });
+  } catch (err) {
+    console.error('Signup error:', err);
+    return res.status(500).json({ error: 'Failed to process signup: ' + err.message });
+  }
+});
+
+/**
+ * 2. Request OTP Code for Existing Email Login
+ */
+router.post('/request-otp', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ error: 'A valid email address is required' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    let user = await prisma.user.findUnique({ where: { email: cleanEmail } });
+
+    if (!user) {
+      return res.status(404).json({ error: 'No account found with this email address. Please sign up first.' });
+    }
+
+    if (user.status !== 'ACTIVE') {
+      return res.status(403).json({ error: 'Your account is deactivated.' });
+    }
+
+    // Generate 6-digit numeric OTP code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Invalidate old unused OTPs
+    await prisma.otpCode.updateMany({
+      where: { email: cleanEmail, used: false },
+      data: { used: true },
+    });
+
+    // Save new OTP
+    await prisma.otpCode.create({
+      data: {
+        email: cleanEmail,
+        code,
+        expiresAt,
+      },
+    });
+
+    // Send Email (NEVER expose OTP code in JSON API response payload!)
+    await sendOtpEmail(cleanEmail, code);
+
+    return res.json({
+      message: 'Verification code sent to your email address.',
+      email: cleanEmail,
     });
   } catch (err) {
     console.error('Request OTP error:', err);
@@ -64,7 +143,7 @@ router.post('/request-otp', async (req, res) => {
 });
 
 /**
- * 2. Verify OTP Code and Login
+ * 3. Verify OTP Code and Automatically Log In
  */
 router.post('/verify-otp', async (req, res) => {
   try {
@@ -120,7 +199,7 @@ router.post('/verify-otp', async (req, res) => {
     await prisma.auditLog.create({
       data: {
         userId: user.id,
-        action: 'LOGIN_OTP',
+        action: 'LOGIN_OTP_VERIFIED',
         entity: 'User',
         entityId: user.id,
         metadata: JSON.stringify({ email: cleanEmail }),
@@ -150,7 +229,7 @@ router.post('/verify-otp', async (req, res) => {
 });
 
 /**
- * 3. Password Login Fallback
+ * 4. Password Login Fallback
  */
 router.post('/password-login', async (req, res) => {
   try {
@@ -221,7 +300,7 @@ router.post('/password-login', async (req, res) => {
 });
 
 /**
- * 4. Get Current User Info
+ * 5. Get Current User Info
  */
 router.get('/me', authenticateToken, async (req, res) => {
   try {
@@ -239,7 +318,7 @@ router.get('/me', authenticateToken, async (req, res) => {
     });
 
     if (!user) {
-      return res.status(444).json({ error: 'User not found' });
+      return res.status(404).json({ error: 'User not found' });
     }
 
     const permissionCodes = user.role?.permissions.map(rp => rp.permission.code) || [];

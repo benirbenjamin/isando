@@ -24,6 +24,10 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  const signup = async (fullName, email, phone) => {
+    return api.post('/auth/signup', { fullName, email, phone });
+  };
+
   const requestOtp = async (email) => {
     return api.post('/auth/request-otp', { email });
   };
@@ -57,6 +61,7 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{
       user,
       loading,
+      signup,
       requestOtp,
       verifyOtp,
       loginWithPassword,
