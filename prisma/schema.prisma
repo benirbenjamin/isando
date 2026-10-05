@@ -1,0 +1,373 @@
+// Prisma schema for Romantic T Solutions Ltd
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String    @id @default(uuid())
+  email              String    @unique
+  passwordHash       String?
+  fullName           String
+  phone              String?
+  profileImage       String?
+  status             String    @default("ACTIVE") // ACTIVE, INACTIVE
+  roleId             String?
+  role               Role?     @relation(fields: [roleId], references: [id])
+  departmentId       String?
+  department         Department? @relation(fields: [departmentId], references: [id])
+  businessDivisionId String?
+  businessDivision   BusinessDivision? @relation(fields: [businessDivisionId], references: [id])
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  // Relations
+  inventoryTransactions InventoryTransaction[]
+  salesRecorded         Sale[]                 @relation("SellerSales")
+  managedEvents         Event[]                @relation("EventManager")
+  createdEvents         Event[]                @relation("EventCreator")
+  eventAssignments      EventAssignment[]
+  assignedTasks         Task[]                 @relation("AssignedTasks")
+  createdTasks          Task[]                 @relation("CreatedTasks")
+  createdAnnouncements  Announcement[]
+  conversationMembers   ConversationMember[]
+  sentMessages          Message[]
+  messageReads          MessageRead[]
+  notifications         Notification[]
+  auditLogs             AuditLog[]
+}
+
+model OtpCode {
+  id        String   @id @default(uuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  code        String   @unique // e.g., 'users.view', 'products.create'
+  description String
+  category    String   // e.g., 'Users', 'Products', 'Sales'
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model Department {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  users       User[]
+}
+
+model BusinessDivision {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  image       String?
+  tag         String?
+  createdAt   DateTime @default(now())
+
+  categories Category[]
+  products   Product[]
+  services   Service[]
+  users      User[]
+}
+
+model Category {
+  id                 String   @id @default(uuid())
+  name               String
+  slug               String
+  type               String   @default("PRODUCT") // PRODUCT or SERVICE
+  businessDivisionId String
+  businessDivision   BusinessDivision @relation(fields: [businessDivisionId], references: [id], onDelete: Cascade)
+  createdAt          DateTime @default(now())
+
+  products Product[]
+  services Service[]
+
+  @@unique([slug, businessDivisionId])
+}
+
+model Product {
+  id                 String   @id @default(uuid())
+  name               String
+  sku                String   @unique
+  description        String
+  businessDivisionId String
+  businessDivision   BusinessDivision @relation(fields: [businessDivisionId], references: [id])
+  categoryId         String
+  category           Category @relation(fields: [categoryId], references: [id])
+  images             String   // JSON string of image URLs
+  regularPrice       Float    @default(0)
+  salePrice          Float    @default(0)
+  discountPercentage Int      @default(0)
+  stockQuantity      Int      @default(0)
+  lowStockThreshold  Int      @default(5)
+  status             String   @default("ACTIVE") // ACTIVE, DRAFT
+  isFeatured         Boolean  @default(false)
+  isNewArrival       Boolean  @default(false)
+  isOnSale           Boolean  @default(false)
+  isPopular          Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  variants              ProductVariant[]
+  inventoryTransactions InventoryTransaction[]
+  saleItems             SaleItem[]
+}
+
+model ProductVariant {
+  id            String   @id @default(uuid())
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  size          String?
+  color         String?
+  sku           String?
+  stockQuantity Int      @default(0)
+  priceOverride Float?
+
+  inventoryTransactions InventoryTransaction[]
+  saleItems             SaleItem[]
+}
+
+model InventoryTransaction {
+  id           String          @id @default(uuid())
+  productId    String
+  product      Product         @relation(fields: [productId], references: [id])
+  variantId    String?
+  variant      ProductVariant? @relation(fields: [variantId], references: [id])
+  type         String          // STOCK_IN, STOCK_OUT, ADJUSTMENT, SALE, RETURN, DAMAGE
+  quantity     Int
+  previousQty  Int
+  newQty       Int
+  userId       String
+  user         User            @relation(fields: [userId], references: [id])
+  note         String?
+  createdAt    DateTime        @default(now())
+}
+
+model Sale {
+  id            String   @id @default(uuid())
+  saleNumber    String   @unique
+  totalAmount   Float
+  paymentMethod String   @default("CASH") // CASH, MOMO, CARD, BANK
+  customerName  String?
+  customerPhone String?
+  sellerId      String
+  seller        User     @relation("SellerSales", fields: [sellerId], references: [id])
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  items SaleItem[]
+}
+
+model SaleItem {
+  id         String          @id @default(uuid())
+  saleId     String
+  sale       Sale            @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product         @relation(fields: [productId], references: [id])
+  variantId  String?
+  variant    ProductVariant? @relation(fields: [variantId], references: [id])
+  quantity   Int
+  unitPrice  Float
+  totalPrice Float
+}
+
+model Service {
+  id                 String   @id @default(uuid())
+  name               String
+  description        String
+  businessDivisionId String
+  businessDivision   BusinessDivision @relation(fields: [businessDivisionId], references: [id])
+  categoryId         String
+  category           Category @relation(fields: [categoryId], references: [id])
+  images             String   // JSON array string
+  location           String?  @default("Kigali & nationwide")
+  startingPrice      Float?   // Optional starting price
+  features           String?  // JSON array string of bullet features
+  icon               String?  // Icon emoji or name
+  isFeatured         Boolean  @default(false)
+  status             String   @default("ACTIVE") // ACTIVE, DRAFT
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model Event {
+  id          String   @id @default(uuid())
+  name        String
+  clientName  String
+  clientPhone String
+  eventType   String   // Wedding, Conference, Party, Corporate
+  venue       String
+  date        DateTime
+  startTime   String?
+  endTime     String?
+  description String?
+  status      String   @default("PLANNING") // PLANNING, CONFIRMED, LIVE, COMPLETED, CANCELLED
+  managerId   String?
+  manager     User?    @relation("EventManager", fields: [managerId], references: [id])
+  createdById String
+  createdBy   User     @relation("EventCreator", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  assignments EventAssignment[]
+  tasks       Task[]
+}
+
+model EventAssignment {
+  id           String    @id @default(uuid())
+  eventId      String
+  event        Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User      @relation(fields: [userId], references: [id])
+  roleName     String    // e.g., 'Photographer', 'Videographer', 'Kitchen Chef'
+  checkInTime  DateTime?
+  checkOutTime DateTime?
+  status       String    @default("ASSIGNED") // ASSIGNED, PRESENT, ABSENT
+  createdAt    DateTime  @default(now())
+
+  @@unique([eventId, userId])
+}
+
+model Task {
+  id             String    @id @default(uuid())
+  title          String
+  description    String?
+  assignedUserId String?
+  assignedUser   User?     @relation("AssignedTasks", fields: [assignedUserId], references: [id])
+  assignedRoleId String?
+  eventId        String?
+  event          Event?    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  priority       String    @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  dueTime        DateTime?
+  status         String    @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, BLOCKED
+  createdById    String
+  createdBy      User      @relation("CreatedTasks", fields: [createdById], references: [id])
+  createdAt      DateTime  @default(now())
+  completedAt    DateTime?
+}
+
+model Announcement {
+  id             String   @id @default(uuid())
+  title          String
+  message        String
+  targetAudience String   @default("EVERYONE") // EVERYONE, DEPARTMENT, ROLE, EVENT_TEAM, USERS
+  targetId       String?  // departmentId, roleId, eventId, or userId
+  priority       String   @default("NORMAL") // NORMAL, HIGH, URGENT
+  relatedEventId String?
+  conversationId String?  // Linked conversation thread ID
+  createdById    String
+  createdBy      User     @relation(fields: [createdById], references: [id])
+  createdAt      DateTime @default(now())
+}
+
+model Conversation {
+  id              String   @id @default(uuid())
+  title           String?
+  type            String   @default("DIRECT") // DIRECT, GROUP, EVENT, ANNOUNCEMENT
+  relatedEntityId String?  // eventId or announcementId
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  members  ConversationMember[]
+  messages Message[]
+}
+
+model ConversationMember {
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt       DateTime     @default(now())
+  lastReadAt     DateTime     @default(now())
+
+  @@id([conversationId, userId])
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation(fields: [senderId], references: [id])
+  text           String
+  attachments    String?      // JSON array of file URLs
+  createdAt      DateTime     @default(now())
+
+  reads MessageRead[]
+}
+
+model MessageRead {
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readAt    DateTime @default(now())
+
+  @@id([messageId, userId])
+}
+
+model Notification {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type            String   // ANNOUNCEMENT, MESSAGE, TASK, EVENT, INVENTORY_LOW
+  title           String
+  message         String
+  relatedEntityId String?
+  entityType      String?  // 'event', 'task', 'announcement', 'product'
+  isRead          Boolean  @default(false)
+  createdAt       DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String   // USER_CREATED, STOCK_CHANGED, SALE_RECORDED, etc.
+  entity    String   // Product, Event, Sale, User
+  entityId  String?
+  metadata  String?  // JSON string
+  timestamp DateTime @default(now())
+}
+
+model Setting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String   // Text or JSON string
+  description String?
+  category    String   @default("GENERAL") // GENERAL, EMAIL, STORAGE, HOMEPAGE
+  updatedAt   DateTime @updatedAt
+}
