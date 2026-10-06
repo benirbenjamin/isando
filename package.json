@@ -7,7 +7,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "prisma generate && (prisma db push --accept-data-loss || true) && vite build",
+    "build": "npx prisma generate && (npx prisma db push --accept-data-loss || true) && npx vite build",
     "preview": "vite preview",
     "server": "node server/index.js",
     "start": "node server/index.js",

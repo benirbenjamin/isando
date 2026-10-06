@@ -160,6 +160,48 @@ export default function SettingsPage() {
               />
             </div>
           </div>
+
+          {/* Theme Colors */}
+          <div className="pt-3 border-t">
+            <span className="font-extrabold text-brand-dark block mb-2 text-xs">Brand Colors</span>
+            <div className="grid grid-cols-2 gap-4 text-xs">
+              <div>
+                <label className="font-bold text-gray-600 block mb-1">Primary Brand Red</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={settings.brand_primary_red || '#6a0203'}
+                    onChange={(e) => handleChange('brand_primary_red', e.target.value)}
+                    className="w-9 h-9 rounded-xl border p-0.5 cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={settings.brand_primary_red || '#6a0203'}
+                    onChange={(e) => handleChange('brand_primary_red', e.target.value)}
+                    className="flex-1 p-2 bg-brand-soft border rounded-xl font-mono text-xs font-bold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-gray-600 block mb-1">Primary Brand Gold Yellow</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={settings.brand_primary_yellow || '#F5B700'}
+                    onChange={(e) => handleChange('brand_primary_yellow', e.target.value)}
+                    className="w-9 h-9 rounded-xl border p-0.5 cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={settings.brand_primary_yellow || '#F5B700'}
+                    onChange={(e) => handleChange('brand_primary_yellow', e.target.value)}
+                    className="flex-1 p-2 bg-brand-soft border rounded-xl font-mono text-xs font-bold"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* 2. Email Integration (Resend API + SMTP Fallback) */}

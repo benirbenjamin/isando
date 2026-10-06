@@ -15,6 +15,19 @@ export function getWhatsAppLink(phone = '250786639945', message = '') {
   return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
 }
 
+export function getImageUrl(item, fallback = '') {
+  if (!item) return fallback;
+  if (typeof item === 'string') return item;
+  if (typeof item === 'object' && item.url) return item.url;
+  return fallback;
+}
+
+export function getImageCaption(item, fallback = '') {
+  if (!item) return fallback;
+  if (typeof item === 'object' && item.caption) return item.caption;
+  return fallback;
+}
+
 /**
  * Native XMLHttpRequest transport (Completely replaces fetch)
  */

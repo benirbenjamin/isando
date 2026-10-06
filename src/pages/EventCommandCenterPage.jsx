@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Calendar, Users, CheckSquare, Clock, MapPin, Phone, ShieldCheck, CheckCircle2, UserCheck, Play, ArrowLeft } from 'lucide-react';
+import { Calendar, Users, CheckSquare, Clock, MapPin, Phone, ShieldCheck, CheckCircle2, UserCheck, Play, ArrowLeft, MessageSquare } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -56,20 +56,39 @@ export default function EventCommandCenterPage() {
   const teamRoleStats = cc.teamRoleStats || {};
   const attendance = cc.attendance || {};
   const taskStats = cc.taskStats || {};
+  const conversationId = event?.conversationId || cc?.conversationId;
 
   const myAssignment = event?.assignments?.find(a => a.userId === user?.id);
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Top Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <Link to="/events" className="inline-flex items-center gap-1 text-xs font-bold text-gray-600 hover:text-brand-red">
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Events</span>
         </Link>
 
-        {/* Manager Live Status Control */}
-        <div className="flex gap-2">
+        {/* Action Controls */}
+        <div className="flex items-center gap-2">
+          {conversationId ? (
+            <Link
+              to={`/messages?conversationId=${conversationId}`}
+              className="bg-brand-yellow hover:bg-amber-400 text-brand-dark font-black text-xs px-4 py-2 rounded-xl shadow-md flex items-center gap-2 transition hover:scale-105"
+            >
+              <MessageSquare className="w-4 h-4 fill-brand-dark" />
+              <span>Event Team Chat Room</span>
+            </Link>
+          ) : (
+            <Link
+              to="/messages"
+              className="bg-brand-yellow hover:bg-amber-400 text-brand-dark font-black text-xs px-4 py-2 rounded-xl shadow-md flex items-center gap-2 transition"
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span>Event Team Chat</span>
+            </Link>
+          )}
+
           {event?.status !== 'LIVE' ? (
             <button
               onClick={() => handleUpdateEventStatus('LIVE')}

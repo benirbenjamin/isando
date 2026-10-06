@@ -3,12 +3,12 @@ import { useParams, Link } from 'react-router-dom';
 import { ShoppingBag, MessageCircle, Check, AlertCircle, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { api, formatCurrency, calcDiscountPct, getWhatsAppLink } from '../services/api';
 import ProductCard from '../components/ProductCard';
+import ImageSlider from '../components/ImageSlider';
 
 export default function ProductDetailPage() {
   const { id } = useParams();
   const [product, setProduct] = useState(null);
   const [relatedProducts, setRelatedProducts] = useState([]);
-  const [selectedImage, setSelectedImage] = useState(0);
   const [selectedSize, setSelectedSize] = useState(null);
   const [selectedColor, setSelectedColor] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -62,7 +62,6 @@ export default function ProductDetailPage() {
   const images = Array.isArray(product.images) 
     ? product.images 
     : (typeof product.images === 'string' ? JSON.parse(product.images || '[]') : []);
-  const mainImage = images[selectedImage] || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=800&q=70';
 
   const discount = calcDiscountPct(product.regularPrice, product.salePrice);
   const isOutOfStock = product.stockQuantity === 0;
@@ -85,35 +84,16 @@ export default function ProductDetailPage() {
 
       {/* Main Product Layout */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 bg-white border border-brand-border rounded-3xl p-6 shadow-sm">
-        {/* Gallery */}
-        <div className="space-y-4">
-          <div className="aspect-square rounded-2xl overflow-hidden bg-brand-soft border border-brand-border relative">
-            <img
-              src={mainImage}
-              alt={product.name}
-              className="w-full h-full object-cover"
-            />
-            {discount > 0 && (
-              <span className="absolute top-4 left-4 bg-brand-red text-white text-xs font-black px-3 py-1.5 rounded-lg shadow">
+        {/* Gallery Slider with Captions */}
+        <div className="space-y-4 relative">
+          {discount > 0 && (
+            <div className="absolute top-3 left-3 z-20 pointer-events-none">
+              <span className="bg-brand-red text-white text-xs font-black px-3 py-1.5 rounded-lg shadow">
                 {discount}% OFF
               </span>
-            )}
-          </div>
-
-          {/* Thumbnails */}
-          {images.length > 1 && (
-            <div className="flex gap-3 overflow-x-auto pb-2">
-              {images.map((img, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setSelectedImage(idx)}
-                  className={`w-16 h-16 rounded-xl overflow-hidden border-2 transition ${idx === selectedImage ? 'border-brand-yellow ring-2 ring-brand-yellow/30' : 'border-gray-200 opacity-70 hover:opacity-100'}`}
-                >
-                  <img src={img} alt="" className="w-full h-full object-cover" />
-                </button>
-              ))}
             </div>
           )}
+          <ImageSlider images={images} title={product.name} aspectRatio="aspect-square" />
         </div>
 
         {/* Product Details & Selection */}

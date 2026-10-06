@@ -95,12 +95,54 @@ router.post('/', authenticateToken, hasPermission('sales.create'), async (req, r
         });
       }
 
+      // Auto-save or update Customer details if provided
+      let customerRecord = null;
+      if (customerName && customerName.trim()) {
+        const cleanCustName = customerName.trim();
+        const cleanCustPhone = customerPhone ? customerPhone.trim() : null;
+        const cleanCustEmail = req.body.customerEmail ? req.body.customerEmail.trim() : null;
+        const cleanCustAddr = req.body.customerAddress ? req.body.customerAddress.trim() : null;
+
+        try {
+          if (cleanCustPhone) {
+            customerRecord = await tx.customer.findFirst({ where: { phone: cleanCustPhone } });
+          }
+          if (!customerRecord) {
+            customerRecord = await tx.customer.findFirst({ where: { name: cleanCustName } });
+          }
+
+          if (customerRecord) {
+            customerRecord = await tx.customer.update({
+              where: { id: customerRecord.id },
+              data: {
+                name: cleanCustName,
+                ...(cleanCustPhone && { phone: cleanCustPhone }),
+                ...(cleanCustEmail && { email: cleanCustEmail }),
+                ...(cleanCustAddr && { address: cleanCustAddr }),
+              }
+            });
+          } else {
+            customerRecord = await tx.customer.create({
+              data: {
+                name: cleanCustName,
+                phone: cleanCustPhone,
+                email: cleanCustEmail,
+                address: cleanCustAddr,
+              }
+            });
+          }
+        } catch (cErr) {
+          console.warn('Customer persistence notice:', cErr.message);
+        }
+      }
+
       // Create Sale Record
       const sale = await tx.sale.create({
         data: {
           saleNumber,
           totalAmount,
           paymentMethod: paymentMethod || 'CASH',
+          customerId: customerRecord?.id || null,
           customerName: customerName || null,
           customerPhone: customerPhone || null,
           sellerId: req.user.id,

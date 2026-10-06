@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Menu, Bell, User, ExternalLink, MessageCircle } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Menu, Bell, ExternalLink, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 
 export default function HeaderDashboard({ setMobileOpen }) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -32,6 +33,33 @@ export default function HeaderDashboard({ setMobileOpen }) {
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleNotificationClick = async (n) => {
+    setShowNotifications(false);
+    if (!n.isRead) {
+      try {
+        await api.put(`/notifications/${n.id}/read`);
+        setUnreadCount(prev => Math.max(0, prev - 1));
+        setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, isRead: true } : item));
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    if (n.type === 'EVENT' || n.entityType === 'event') {
+      navigate(n.relatedEntityId ? `/events/${n.relatedEntityId}` : '/events');
+    } else if (n.type === 'TASK' || n.entityType === 'task') {
+      navigate('/tasks');
+    } else if (n.type === 'MESSAGE' || n.entityType === 'conversation') {
+      navigate(n.relatedEntityId ? `/messages?conversationId=${n.relatedEntityId}` : '/messages');
+    } else if (n.type === 'ANNOUNCEMENT' || n.entityType === 'announcement') {
+      navigate('/announcements');
+    } else if (n.type === 'INVENTORY_LOW' || n.entityType === 'product') {
+      navigate('/inventory');
+    } else {
+      navigate('/dashboard');
     }
   };
 
@@ -90,13 +118,24 @@ export default function HeaderDashboard({ setMobileOpen }) {
                 <div className="max-h-80 overflow-y-auto divide-y divide-gray-100 no-scrollbar">
                   {notifications.length > 0 ? (
                     notifications.map(n => (
-                      <div key={n.id} className={`p-3 text-xs ${n.isRead ? 'bg-white' : 'bg-amber-50/60'}`}>
-                        <b className="block font-bold text-brand-dark mb-0.5">{n.title}</b>
-                        <p className="text-gray-600 leading-tight">{n.message}</p>
-                        <span className="text-[10px] text-gray-400 mt-1 block">
-                          {new Date(n.createdAt).toLocaleTimeString()} &bull; {new Date(n.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
+                      <button
+                        key={n.id}
+                        type="button"
+                        onClick={() => handleNotificationClick(n)}
+                        className={`w-full text-left p-3.5 text-xs transition flex items-start justify-between gap-2 hover:bg-amber-50/70 ${n.isRead ? 'bg-white' : 'bg-amber-50/50'}`}
+                      >
+                        <div>
+                          <div className="flex items-center gap-2 mb-0.5">
+                            {!n.isRead && <span className="w-2 h-2 rounded-full bg-brand-red flex-shrink-0" />}
+                            <b className="font-bold text-brand-dark">{n.title}</b>
+                          </div>
+                          <p className="text-gray-600 leading-tight">{n.message}</p>
+                          <span className="text-[10px] text-gray-400 mt-1.5 block">
+                            {new Date(n.createdAt).toLocaleTimeString()} &bull; {new Date(n.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <ArrowRight className="w-4 h-4 text-gray-400 flex-shrink-0 mt-1" />
+                      </button>
                     ))
                   ) : (
                     <div className="p-6 text-center text-xs text-gray-400 font-bold">

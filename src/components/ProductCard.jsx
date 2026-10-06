@@ -1,13 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ShoppingBag, MessageCircle } from 'lucide-react';
-import { formatCurrency, calcDiscountPct, getWhatsAppLink } from '../services/api';
+import { formatCurrency, calcDiscountPct, getWhatsAppLink, getImageUrl } from '../services/api';
 
 export default function ProductCard({ product }) {
   const images = Array.isArray(product.images) 
     ? product.images 
     : (typeof product.images === 'string' ? JSON.parse(product.images || '[]') : []);
-  const mainImage = images[0] || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&q=70';
+  const mainImage = getImageUrl(images[0], 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&q=70');
 
   const discount = calcDiscountPct(product.regularPrice, product.salePrice);
   const isOutOfStock = product.stockQuantity === 0;

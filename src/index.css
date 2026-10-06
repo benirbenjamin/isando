@@ -5,7 +5,7 @@
 :root {
   --y: #F5B700;
   --yd: #D99F00;
-  --r: #D7263D;
+  --r: #6a0203;
   --fg: #1F2430;
   --mut: #667085;
   --bg: #FFFFFF;
@@ -33,8 +33,8 @@ html {
 }
 
 @keyframes pulse-red {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(215, 38, 61, 0.45); }
-  50% { box-shadow: 0 0 0 10px rgba(215, 38, 61, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(106, 2, 3, 0.45); }
+  50% { box-shadow: 0 0 0 10px rgba(106, 2, 3, 0); }
 }
 
 @keyframes pulse-green {

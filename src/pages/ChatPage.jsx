@@ -57,6 +57,12 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => {
+    if (activeConvParam && activeConvParam !== activeConvId) {
+      setActiveConvId(activeConvParam);
+    }
+  }, [activeConvParam]);
+
+  useEffect(() => {
     if (activeConvId) {
       loadMessages(activeConvId);
       const interval = setInterval(() => loadMessages(activeConvId), 4000); // Poll every 4s
@@ -72,14 +78,33 @@ export default function ChatPage() {
     e.preventDefault();
     if (!inputText.trim() || !activeConvId) return;
 
-    const textToSend = inputText;
+    const textToSend = inputText.trim();
     setInputText('');
 
+    // Optimistic UI update
+    const tempMsg = {
+      id: 'temp-' + Date.now(),
+      text: textToSend,
+      createdAt: new Date().toISOString(),
+      sender: { id: user?.id, fullName: user?.fullName || 'Me' },
+      attachments: [],
+      seenByCount: 1,
+      seenByTotal: 1,
+    };
+    setMessages(prev => [...prev, tempMsg]);
+
     try {
-      await api.post(`/messages/conversations/${activeConvId}/messages`, { text: textToSend });
+      try {
+        await api.post(`/messages/conversations/${activeConvId}/messages`, { text: textToSend });
+      } catch (firstErr) {
+        // Fallback to /messages/send
+        await api.post('/messages/send', { conversationId: activeConvId, text: textToSend });
+      }
       loadMessages(activeConvId);
     } catch (err) {
-      alert('Failed to send message: ' + err.message);
+      console.error('Failed to send message:', err);
+      alert('Failed to send message: ' + (err.message || 'Please check your connection and try again.'));
+      loadMessages(activeConvId);
     }
   };
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Plus, Shield, KeyRound, CheckCircle2, XCircle } from 'lucide-react';
+import { Users, Plus, Shield, KeyRound, CheckCircle2, XCircle, Edit3, Trash2 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -9,6 +9,7 @@ export default function WorkersPage() {
   const [roles, setRoles] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [newPassword, setNewPassword] = useState('');
@@ -21,6 +22,16 @@ export default function WorkersPage() {
     password: '',
     roleId: '',
     departmentId: '',
+  });
+
+  const [editForm, setEditForm] = useState({
+    id: '',
+    fullName: '',
+    email: '',
+    phone: '',
+    roleId: '',
+    departmentId: '',
+    status: 'ACTIVE',
   });
 
   const [error, setError] = useState('');
@@ -55,9 +66,62 @@ export default function WorkersPage() {
       await api.post('/users', form);
       setShowModal(false);
       setForm({ email: '', fullName: '', phone: '', password: '', roleId: '', departmentId: '' });
-      loadUsersData();
+      // Auto-refresh without app reload
+      await loadUsersData();
     } catch (err) {
       setError(err.message || 'Failed to create worker');
+    }
+  };
+
+  const openEditModal = (u) => {
+    setEditForm({
+      id: u.id,
+      fullName: u.fullName || '',
+      email: u.email || '',
+      phone: u.phone || '',
+      roleId: u.roleId || u.role?.id || '',
+      departmentId: u.departmentId || u.department?.id || '',
+      status: u.status || 'ACTIVE',
+    });
+    setError('');
+    setShowEditModal(true);
+  };
+
+  const handleUpdateWorker = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    try {
+      await api.put(`/users/${editForm.id}`, {
+        fullName: editForm.fullName,
+        email: editForm.email,
+        phone: editForm.phone,
+        roleId: editForm.roleId,
+        departmentId: editForm.departmentId || null,
+        status: editForm.status,
+      });
+      setShowEditModal(false);
+      // Auto-refresh without app reload
+      await loadUsersData();
+    } catch (err) {
+      setError(err.message || 'Failed to update user');
+    }
+  };
+
+  const handleDeleteUser = async (u) => {
+    if (u.id === currentUser?.id) {
+      return alert('You cannot delete your own account.');
+    }
+    if (!window.confirm(`Are you sure you want to delete user ${u.fullName} (${u.email})?`)) {
+      return;
+    }
+
+    try {
+      await api.delete(`/users/${u.id}`);
+      // Auto-refresh without app reload
+      await loadUsersData();
+    } catch (err) {
+      alert(err.message || 'Failed to delete user');
     }
   };
 
@@ -77,7 +141,7 @@ export default function WorkersPage() {
     const newStatus = userObj.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
     try {
       await api.put(`/users/${userObj.id}`, { status: newStatus });
-      loadUsersData();
+      await loadUsersData();
     } catch (err) {
       alert(err.message);
     }
@@ -95,12 +159,15 @@ export default function WorkersPage() {
             <span>Workers & Workforce Management</span>
           </h1>
           <p className="text-xs text-brand-muted mt-1">
-            Super Admin & Admin control over staff, roles, and status
+            Super Admin & Admin control over staff accounts, roles, departments and permissions
           </p>
         </div>
 
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => {
+            setError('');
+            setShowModal(true);
+          }}
           className="bg-brand-red hover:bg-brand-redDark text-white font-extrabold text-xs px-5 py-2.5 rounded-2xl shadow flex items-center gap-2 transition"
         >
           <Plus className="w-4 h-4" />
@@ -123,7 +190,7 @@ export default function WorkersPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {users.map(u => (
-                <tr key={u.id} className="hover:bg-gray-50">
+                <tr key={u.id} className="hover:bg-gray-50 transition">
                   <td className="p-3 font-bold text-brand-dark">
                     <div>{u.fullName}</div>
                     <span className="text-[10px] text-gray-400 font-mono">{u.email} &bull; {u.phone || 'No phone'}</span>
@@ -139,7 +206,14 @@ export default function WorkersPage() {
                       {u.status}
                     </span>
                   </td>
-                  <td className="p-3 text-right space-x-2">
+                  <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                    <button
+                      onClick={() => openEditModal(u)}
+                      className="p-1.5 text-gray-600 hover:text-brand-dark hover:bg-amber-100 rounded-lg transition"
+                      title="Edit User"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                    </button>
                     <button
                       onClick={() => { setSelectedUserId(u.id); setShowResetModal(true); }}
                       className="p-1.5 text-gray-500 hover:text-brand-dark hover:bg-gray-100 rounded-lg transition"
@@ -154,6 +228,13 @@ export default function WorkersPage() {
                     >
                       {u.status === 'ACTIVE' ? <XCircle className="w-4 h-4 text-red-500" /> : <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
                     </button>
+                    <button
+                      onClick={() => handleDeleteUser(u)}
+                      className="p-1.5 text-gray-400 hover:text-brand-red hover:bg-red-50 rounded-lg transition"
+                      title="Delete User"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -164,8 +245,8 @@ export default function WorkersPage() {
 
       {/* Add Worker Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-pop">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 space-y-4 shadow-2xl animate-pop max-h-[92vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b pb-3">
               <h3 className="text-lg font-black text-brand-dark">Add New Worker Account</h3>
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-red-500 font-bold text-xl">&times;</button>
@@ -210,6 +291,18 @@ export default function WorkersPage() {
               </div>
 
               <div>
+                <label className="font-bold text-brand-dark block mb-1">Password *</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="••••••••"
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  className="w-full p-2.5 bg-brand-soft border border-brand-border rounded-xl font-bold"
+                />
+              </div>
+
+              <div>
                 <label className="font-bold text-brand-dark block mb-1">Assign Role *</label>
                 <select
                   required
@@ -240,9 +333,105 @@ export default function WorkersPage() {
 
               <button
                 type="submit"
-                className="w-full bg-brand-red hover:bg-brand-redDark text-white py-3 rounded-2xl font-black text-sm shadow transition"
+                className="w-full bg-brand-red hover:bg-brand-redDark text-white py-3.5 rounded-2xl font-black text-sm shadow-lg shine-effect transition"
               >
-                Create Worker
+                Create Worker Account
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Worker Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 space-y-4 shadow-2xl animate-pop max-h-[92vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b pb-3">
+              <h3 className="text-lg font-black text-brand-dark">Edit User Profile & Role</h3>
+              <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-red-500 font-bold text-xl">&times;</button>
+            </div>
+
+            {error && <div className="bg-red-50 text-brand-red p-3 rounded-xl text-xs font-semibold">{error}</div>}
+
+            <form onSubmit={handleUpdateWorker} className="space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-brand-dark block mb-1">Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editForm.fullName}
+                  onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
+                  className="w-full p-2.5 bg-brand-soft border border-brand-border rounded-xl font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-brand-dark block mb-1">Email Address *</label>
+                <input
+                  type="email"
+                  required
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  className="w-full p-2.5 bg-brand-soft border border-brand-border rounded-xl"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-brand-dark block mb-1">Phone Number</label>
+                <input
+                  type="tel"
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                  className="w-full p-2.5 bg-brand-soft border border-brand-border rounded-xl"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-brand-dark block mb-1">User Role *</label>
+                <select
+                  required
+                  value={editForm.roleId}
+                  onChange={(e) => setEditForm({ ...editForm, roleId: e.target.value })}
+                  className="w-full p-2.5 bg-brand-soft border border-brand-border rounded-xl font-bold"
+                >
+                  <option value="">-- Choose Role --</option>
+                  {roles.map(r => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-brand-dark block mb-1">Department</label>
+                <select
+                  value={editForm.departmentId}
+                  onChange={(e) => setEditForm({ ...editForm, departmentId: e.target.value })}
+                  className="w-full p-2.5 bg-brand-soft border border-brand-border rounded-xl font-semibold"
+                >
+                  <option value="">-- General Department --</option>
+                  {departments.map(d => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-brand-dark block mb-1">Account Status</label>
+                <select
+                  value={editForm.status}
+                  onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                  className="w-full p-2.5 bg-brand-soft border border-brand-border rounded-xl font-bold"
+                >
+                  <option value="ACTIVE">ACTIVE</option>
+                  <option value="INACTIVE">INACTIVE</option>
+                </select>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-brand-yellow hover:bg-brand-yellowDark text-brand-dark py-3.5 rounded-2xl font-black text-sm shadow-md transition"
+              >
+                Save User Changes
               </button>
             </form>
           </div>
@@ -251,7 +440,7 @@ export default function WorkersPage() {
 
       {/* Reset Password Modal */}
       {showResetModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
           <div className="bg-white rounded-3xl max-w-xs w-full p-6 space-y-4 shadow-2xl animate-pop">
             <h3 className="text-base font-black text-brand-dark border-b pb-2">Reset Password</h3>
             <form onSubmit={handleResetPassword} className="space-y-4 text-xs">

@@ -1,13 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, MessageCircle, ArrowRight } from 'lucide-react';
-import { formatCurrency, getWhatsAppLink } from '../services/api';
+import { formatCurrency, getWhatsAppLink, getImageUrl } from '../services/api';
 
 export default function ServiceCard({ service }) {
   const images = Array.isArray(service.images) 
     ? service.images 
     : (typeof service.images === 'string' ? JSON.parse(service.images || '[]') : []);
-  const mainImage = images[0] || 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=600&q=70';
+  const mainImage = getImageUrl(images[0], 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=600&q=70');
 
   const waMsg = `Hello Romantic T Solutions, I am interested in your ${service.name} service. I would like to know more about availability and pricing.`;
 

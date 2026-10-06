@@ -238,16 +238,32 @@ router.get('/conversations/:id/messages', authenticateToken, async (req, res) =>
 });
 
 /**
- * Send Message in Conversation
+ * Helper to execute message sending
  */
-router.post('/conversations/:id/messages', authenticateToken, async (req, res) => {
+async function executeSendMessage(req, res, conversationId, text, attachments) {
   try {
-    const conversationId = req.params.id;
-    const { text, attachments } = req.body;
-
+    if (!conversationId) {
+      return res.status(400).json({ error: 'Conversation ID is required' });
+    }
     if (!text && (!attachments || attachments.length === 0)) {
       return res.status(400).json({ error: 'Message content or attachment is required' });
     }
+
+    // Verify conversation exists
+    let conversation = await prisma.conversation.findUnique({
+      where: { id: conversationId }
+    }).catch(() => null);
+
+    if (!conversation) {
+      return res.status(404).json({ error: 'Conversation thread not found' });
+    }
+
+    // Auto-ensure user membership in conversation
+    await prisma.conversationMember.upsert({
+      where: { conversationId_userId: { conversationId, userId: req.user.id } },
+      update: { lastReadAt: new Date() },
+      create: { conversationId, userId: req.user.id }
+    }).catch(() => {});
 
     const message = await prisma.message.create({
       data: {
@@ -264,30 +280,56 @@ router.post('/conversations/:id/messages', authenticateToken, async (req, res) =
     await prisma.conversation.update({
       where: { id: conversationId },
       data: { updatedAt: new Date() }
-    });
+    }).catch(() => {});
 
-    await prisma.messageRead.create({
-      data: {
+    await prisma.messageRead.upsert({
+      where: { messageId_userId: { messageId: message.id, userId: req.user.id } },
+      update: { readAt: new Date() },
+      create: {
         messageId: message.id,
         userId: req.user.id,
       }
-    });
+    }).catch(() => {});
 
-    const io = req.app.get('io');
-    if (io) {
-      io.to(`conversation_${conversationId}`).emit('new_message', {
-        ...message,
-        attachments: JSON.parse(message.attachments || '[]'),
-      });
-    }
+    try {
+      const io = req.app.get('io');
+      if (io) {
+        io.to(`conversation_${conversationId}`).emit('new_message', {
+          ...message,
+          attachments: JSON.parse(message.attachments || '[]'),
+        });
+      }
+    } catch {}
 
     return res.status(201).json({
       ...message,
       attachments: JSON.parse(message.attachments || '[]'),
     });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error('Send message error:', err);
+    return res.status(500).json({ error: 'Failed to send message: ' + (err.message || 'Server error') });
   }
+}
+
+/**
+ * Send Message: Route 1 - /conversations/:id/messages
+ */
+router.post('/conversations/:id/messages', authenticateToken, async (req, res) => {
+  return executeSendMessage(req, res, req.params.id, req.body.text, req.body.attachments);
+});
+
+/**
+ * Send Message: Route 2 - /send
+ */
+router.post('/send', authenticateToken, async (req, res) => {
+  return executeSendMessage(req, res, req.body.conversationId, req.body.text, req.body.attachments);
+});
+
+/**
+ * Send Message: Route 3 - POST /
+ */
+router.post('/', authenticateToken, async (req, res) => {
+  return executeSendMessage(req, res, req.body.conversationId, req.body.text, req.body.attachments);
 });
 
 /**

@@ -195,12 +195,56 @@ router.put('/profile/me', authenticateToken, async (req, res) => {
       }
     });
 
-    return res.json({
-      ...updated,
-      passwordHash: undefined,
+/**
+ * Delete User Account
+ */
+router.delete('/:id', authenticateToken, hasPermission('users.edit'), async (req, res) => {
+  try {
+    const targetUserId = req.params.id;
+
+    if (targetUserId === req.user.id) {
+      return res.status(400).json({ error: 'You cannot delete your own account' });
+    }
+
+    const targetUser = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      include: { role: true },
     });
+
+    if (!targetUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (targetUser.email === 'admin@romantictsolutions.com') {
+      return res.status(403).json({ error: 'The primary system Super Administrator cannot be deleted' });
+    }
+
+    // Clean up dependent records safely
+    await prisma.otpCode.deleteMany({ where: { email: targetUser.email } }).catch(() => {});
+    await prisma.notification.deleteMany({ where: { userId: targetUserId } }).catch(() => {});
+    await prisma.conversationMember.deleteMany({ where: { userId: targetUserId } }).catch(() => {});
+    await prisma.messageRead.deleteMany({ where: { userId: targetUserId } }).catch(() => {});
+    await prisma.eventAssignment.deleteMany({ where: { userId: targetUserId } }).catch(() => {});
+    await prisma.auditLog.deleteMany({ where: { userId: targetUserId } }).catch(() => {});
+
+    await prisma.user.delete({
+      where: { id: targetUserId },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userId: req.user.id,
+        action: 'USER_DELETED',
+        entity: 'User',
+        entityId: targetUserId,
+        metadata: JSON.stringify({ email: targetUser.email, name: targetUser.fullName }),
+      }
+    }).catch(() => {});
+
+    return res.json({ message: `User account '${targetUser.fullName}' deleted successfully` });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error('Delete user error:', err);
+    return res.status(500).json({ error: 'Failed to delete user: ' + err.message });
   }
 });
 

@@ -31,19 +31,26 @@ router.post('/signup', async (req, res) => {
     }
 
     if (!user) {
-      const defaultRole = await prisma.role.findFirst({
-        where: { name: { in: ['Sales Staff', 'User', 'Staff'] } }
-      }).catch(() => null) || await prisma.role.findFirst().catch(() => null);
+      let regularRole = await prisma.role.findFirst({
+        where: { name: 'Regular User' }
+      }).catch(() => null);
 
-      const defaultDepartment = await prisma.department.findFirst().catch(() => null);
+      if (!regularRole) {
+        regularRole = await prisma.role.create({
+          data: {
+            name: 'Regular User',
+            description: 'Standard platform user and customer',
+            isSystem: false,
+          }
+        }).catch(() => null);
+      }
 
       user = await prisma.user.create({
         data: {
           email: cleanEmail,
           fullName: cleanName,
           phone: phone ? phone.trim() : null,
-          roleId: defaultRole?.id,
-          departmentId: defaultDepartment?.id,
+          roleId: regularRole?.id,
           status: 'ACTIVE',
         }
       }).catch(() => ({ email: cleanEmail, fullName: cleanName, status: 'ACTIVE' }));

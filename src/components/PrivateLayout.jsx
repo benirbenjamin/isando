@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import HeaderDashboard from './HeaderDashboard';
+import MobileBottomNav from './MobileBottomNav';
 import { useAuth } from '../context/AuthContext';
 
 export default function PrivateLayout() {
@@ -24,7 +25,7 @@ export default function PrivateLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex text-brand-dark">
+    <div className="min-h-screen bg-gray-50 flex text-brand-dark pb-16 md:pb-0">
       <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
       <div className="flex-1 flex flex-col min-w-0 lg:pl-64">
         <HeaderDashboard setMobileOpen={setMobileOpen} />
@@ -32,6 +33,9 @@ export default function PrivateLayout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Sticky Mobile Bottom Navigation */}
+      <MobileBottomNav onOpenMobileMenu={() => setMobileOpen(true)} />
     </div>
   );
 }

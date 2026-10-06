@@ -110,7 +110,6 @@ async function uploadToGoogleDriveAccount(fileBuffer, originalName, accountConfi
 }
 
 export async function uploadFile(fileBuffer, originalName, mimeType = 'image/jpeg') {
-  const activeProvider = (await getSetting('storage_provider')) || 'AUTO';
   const vercelToken = process.env.BLOB_READ_WRITE_TOKEN || await getSetting('blob_read_write_token');
   
   let googleAccountsRaw = await getSetting('google_drive_accounts');
@@ -121,37 +120,41 @@ export async function uploadFile(fileBuffer, originalName, mimeType = 'image/jpe
     googleAccounts = [];
   }
 
-  console.log(`📦 Storage request: Active Provider = ${activeProvider}`);
+  let vercelBlobUrl = null;
+  let googleDriveUrl = null;
 
-  // AUTOMATIC BUCKET / CLOUD DETECTION
-  if (activeProvider === 'AUTO' || activeProvider === 'VERCEL_BLOB') {
-    if (vercelToken) {
-      try {
-        console.log('🌐 Automatic Vercel Blob Bucket upload...');
-        const url = await uploadToVercelBlob(fileBuffer, originalName);
-        console.log('✅ Uploaded automatically to Vercel Cloud Bucket');
-        return url;
-      } catch (err) {
-        console.warn(`⚠️ Vercel Blob bucket upload failed: ${err.message}. Trying Google Drive / Local...`);
-      }
+  // 1. Try Vercel Blob Bucket
+  if (vercelToken) {
+    try {
+      console.log('🌐 Uploading to Vercel Cloud Blob Bucket...');
+      vercelBlobUrl = await uploadToVercelBlob(fileBuffer, originalName);
+      console.log('✅ Successfully uploaded to Vercel Blob Bucket:', vercelBlobUrl);
+    } catch (err) {
+      console.warn(`⚠️ Vercel Blob bucket upload failed: ${err.message}`);
     }
   }
 
-  // GOOGLE DRIVE WITH MULTI-ACCOUNT FAILOVER
-  if (activeProvider === 'GOOGLE_DRIVE' || (activeProvider === 'AUTO' && googleAccounts.length > 0)) {
+  // 2. Try Google Drive (Failover or Secondary Mirror)
+  if (googleAccounts.length > 0) {
     for (const acc of googleAccounts) {
       try {
-        console.log(`🌐 Attempting upload to Google Drive Account: ${acc.name}...`);
-        const url = await uploadToGoogleDriveAccount(fileBuffer, originalName, acc);
-        console.log(`✅ Uploaded successfully to Google Drive Account [${acc.name}]`);
-        return url;
+        console.log(`🌐 Uploading to Google Drive Account: [${acc.name}]...`);
+        googleDriveUrl = await uploadToGoogleDriveAccount(fileBuffer, originalName, acc);
+        console.log(`✅ Successfully uploaded to Google Drive [${acc.name}]:`, googleDriveUrl);
+        break; // Successfully uploaded to at least one Google Drive account
       } catch (err) {
-        console.warn(`⚠️ Google Drive Account [${acc.name}] failed: ${err.message}. Trying next account...`);
+        console.warn(`⚠️ Google Drive [${acc.name}] upload failed: ${err.message}`);
       }
     }
   }
 
-  // FALLBACK TO LOCAL STORAGE
-  console.log('📂 Uploading to local server storage fallback...');
-  return uploadToLocal(fileBuffer, originalName);
+  // Return best available cloud URL
+  if (vercelBlobUrl) return vercelBlobUrl;
+  if (googleDriveUrl) return googleDriveUrl;
+
+  // 3. Fallback: Direct Base64 Data URI so image is ALWAYS 100% visible and NEVER produces a 404 broken image
+  console.log('🖼️ Cloud storage not configured yet: encoding as resilient direct Data URI so image is immediately visible everywhere...');
+  const base64 = fileBuffer.toString('base64');
+  const safeMime = mimeType || 'image/jpeg';
+  return `data:${safeMime};base64,${base64}`;
 }

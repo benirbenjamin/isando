@@ -122,6 +122,38 @@ router.post('/transaction', authenticateToken, hasPermission('inventory.manage')
         }
       });
 
+      // If Customer Return, update overall finance by recording refund
+      if (type === 'RETURN') {
+        const { customerId, customerName, refundAmount } = req.body;
+        const refundVal = parseFloat(refundAmount) || (product.salePrice * qty) || (product.regularPrice * qty);
+        const refundNumber = `RET-${Date.now().toString().slice(-6)}`;
+
+        try {
+          await tx.sale.create({
+            data: {
+              saleNumber: refundNumber,
+              totalAmount: -Math.abs(refundVal),
+              paymentMethod: 'CASH',
+              customerId: customerId || null,
+              customerName: customerName || 'Customer Return',
+              sellerId: req.user.id,
+              notes: `Refund for customer return: ${product.name} (Qty: ${qty}). ${note || ''}`,
+              items: {
+                create: [{
+                  productId,
+                  variantId: variantId || null,
+                  quantity: qty,
+                  unitPrice: -(Math.abs(refundVal) / qty),
+                  totalPrice: -Math.abs(refundVal),
+                }]
+              }
+            }
+          });
+        } catch (rfErr) {
+          console.warn('Finance return adjustment notice:', rfErr.message);
+        }
+      }
+
       // Audit Log
       await tx.auditLog.create({
         data: {

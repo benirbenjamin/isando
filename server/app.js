@@ -24,6 +24,7 @@ import financeRoutes from './routes/finance.js';
 import auditLogsRoutes from './routes/auditLogs.js';
 import settingsRoutes from './routes/settings.js';
 import uploadRoutes from './routes/upload.js';
+import customersRoutes from './routes/customers.js';
 
 dotenv.config();
 
@@ -50,6 +51,7 @@ app.use('/api/products', productsRoutes);
 app.use('/api/services', servicesRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/sales', salesRoutes);
+app.use('/api/customers', customersRoutes);
 app.use('/api/events', eventsRoutes);
 app.use('/api/tasks', tasksRoutes);
 app.use('/api/announcements', announcementsRoutes);

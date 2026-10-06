@@ -12,8 +12,8 @@ export default {
           yellowDark: '#D99F00',
           soft: '#FBF8EE',
           border: '#EEE7CF',
-          red: '#D7263D',
-          redDark: '#B81D31',
+          red: '#6a0203',
+          redDark: '#4e0102',
           dark: '#1F2430',
           muted: '#667085',
         }

@@ -277,6 +277,122 @@ async function ensureTablesExist() {
 export async function autoMigrateDatabase() {
   await ensureTablesExist();
 
+  // Always ensure all essential system roles and brand settings exist
+  try {
+    const rolesToSeed = [
+      { name: 'Super Administrator', description: 'Complete executive control and platform administration', isSystem: true },
+      { name: 'Administrator', description: 'Full business operations, editing, and staff management', isSystem: true },
+      { name: 'Operations Manager', description: 'Supervises stock, event command center, and workforce', isSystem: false },
+      { name: 'Sales Manager', description: 'Oversees sales, point of sale terminals, and customer accounts', isSystem: false },
+      { name: 'Sales Staff', description: 'Point of sale cashier, record transactions, and retail sales', isSystem: false },
+      { name: 'Inventory Officer', description: 'Warehouse stock in/out, audits, and supplier tracking', isSystem: false },
+      { name: 'Event Coordinator', description: 'Manages wedding events, equipment, and crew duties', isSystem: false },
+      { name: 'Finance Officer', description: 'Monitors revenues, cash flow, refunds, and financial ledgers', isSystem: false },
+      { name: 'Customer Support', description: 'Handles client communications, chat, and service inquiries', isSystem: false },
+      { name: 'Regular User', description: 'Standard platform client and customer', isSystem: false },
+    ];
+
+    for (const r of rolesToSeed) {
+      await prisma.role.upsert({
+        where: { name: r.name },
+        update: { description: r.description },
+        create: r,
+      }).catch(() => {});
+    }
+
+    const superAdminRole = await prisma.role.findUnique({ where: { name: 'Super Administrator' } });
+    const regularRole = await prisma.role.findUnique({ where: { name: 'Regular User' } });
+
+    // Fix: Reassign any non-primary user that was assigned Super Admin by fallback during self-registration
+    if (superAdminRole && regularRole) {
+      await prisma.user.updateMany({
+        where: {
+          email: { not: 'admin@romantictsolutions.com' },
+          roleId: superAdminRole.id,
+        },
+        data: {
+          roleId: regularRole.id,
+        },
+      }).catch(() => {});
+    }
+
+    // Ensure default brand colors exist in Setting
+    await prisma.setting.upsert({
+      where: { key: 'brand_primary_red' },
+      update: {},
+      create: { key: 'brand_primary_red', value: '#6a0203', category: 'BRANDING' },
+    }).catch(() => {});
+
+    await prisma.setting.upsert({
+      where: { key: 'brand_primary_yellow' },
+      update: {},
+      create: { key: 'brand_primary_yellow', value: '#F5B700', category: 'BRANDING' },
+    }).catch(() => {});
+
+    // Ensure all popular categories exist across divisions
+    const divRecords = await prisma.businessDivision.findMany();
+    const divMap = {};
+    for (const d of divRecords) divMap[d.name] = d.id;
+
+    const allKnownCategories = [
+      // Food & Beverages
+      { name: 'Beverages & Soft Drinks', slug: 'beverages-soft-drinks', type: 'PRODUCT', div: 'Food & Beverages' },
+      { name: 'Fresh Juices & Smoothies', slug: 'fresh-juices-smoothies', type: 'PRODUCT', div: 'Food & Beverages' },
+      { name: 'Wines & Alcoholic Drinks', slug: 'wines-alcoholic-drinks', type: 'PRODUCT', div: 'Food & Beverages' },
+      { name: 'Bakery & Fresh Pastries', slug: 'bakery-fresh-pastries', type: 'PRODUCT', div: 'Food & Beverages' },
+      { name: 'Wholesale Rice & Grains', slug: 'wholesale-rice-grains', type: 'PRODUCT', div: 'Food & Beverages' },
+      { name: 'Meat, Poultry & Seafood', slug: 'meat-poultry-seafood', type: 'PRODUCT', div: 'Food & Beverages' },
+      { name: 'Dairy & Farm Products', slug: 'dairy-farm-products', type: 'PRODUCT', div: 'Food & Beverages' },
+      { name: 'Snacks & Fast Bites', slug: 'snacks-fast-bites', type: 'PRODUCT', div: 'Food & Beverages' },
+      { name: 'Mineral Water & Energy Drinks', slug: 'mineral-water-energy-drinks', type: 'PRODUCT', div: 'Food & Beverages' },
+      { name: 'Event Catering Food Packs', slug: 'event-catering-food-packs', type: 'PRODUCT', div: 'Food & Beverages' },
+
+      // Clothes & Shoes
+      { name: "Men's Shoes & Sneakers", slug: 'mens-shoes-sneakers', type: 'PRODUCT', div: 'Clothes & Shoes' },
+      { name: "Women's Shoes & Heels", slug: 'womens-shoes-heels', type: 'PRODUCT', div: 'Clothes & Shoes' },
+      { name: "Men's Suits & Formal Wear", slug: 'mens-suits-formal-wear', type: 'PRODUCT', div: 'Clothes & Shoes' },
+      { name: "Men's Casual & T-Shirts", slug: 'mens-casual-tshirts', type: 'PRODUCT', div: 'Clothes & Shoes' },
+      { name: "Women's Dresses & Gowns", slug: 'womens-dresses-gowns', type: 'PRODUCT', div: 'Clothes & Shoes' },
+      { name: 'Traditional Rwandan Attire (Mushanana)', slug: 'traditional-rwandan-mushanana', type: 'PRODUCT', div: 'Clothes & Shoes' },
+      { name: "Children & Kids Clothing", slug: 'children-kids-clothing', type: 'PRODUCT', div: 'Clothes & Shoes' },
+      { name: 'Handbags & Accessories', slug: 'handbags-accessories', type: 'PRODUCT', div: 'Clothes & Shoes' },
+      { name: 'Sportswear & Activewear', slug: 'sportswear-activewear', type: 'PRODUCT', div: 'Clothes & Shoes' },
+      { name: 'Jackets & Outerwear', slug: 'jackets-outerwear', type: 'PRODUCT', div: 'Clothes & Shoes' },
+
+      // Wedding Services
+      { name: 'Photography & Photo Albums', slug: 'photography-photo-albums', type: 'SERVICE', div: 'Wedding Services' },
+      { name: 'Cinematic Videography & Drones', slug: 'cinematic-videography-drones', type: 'SERVICE', div: 'Wedding Services' },
+      { name: 'Venue Decoration & Floral Styling', slug: 'venue-decoration-floral-styling', type: 'SERVICE', div: 'Wedding Services' },
+      { name: 'Bridal VIP Cars & Limousines', slug: 'bridal-vip-cars-limos', type: 'SERVICE', div: 'Wedding Services' },
+      { name: 'Master of Ceremony (MC) & DJ', slug: 'mc-sound-dj', type: 'SERVICE', div: 'Wedding Services' },
+      { name: 'Sound Systems & Stage Lighting', slug: 'sound-systems-lighting', type: 'SERVICE', div: 'Wedding Services' },
+      { name: 'Full Catering & Buffet Service', slug: 'catering-buffet-service', type: 'SERVICE', div: 'Wedding Services' },
+      { name: 'Traditional Protocol & Dowry (Gusaba)', slug: 'traditional-protocol-gusaba', type: 'SERVICE', div: 'Wedding Services' },
+      { name: 'Wedding Cakes & Champagne', slug: 'wedding-cakes-champagne', type: 'SERVICE', div: 'Wedding Services' },
+      { name: 'Bridal Hair & Makeup Styling', slug: 'bridal-hair-makeup', type: 'SERVICE', div: 'Wedding Services' },
+
+      // Consultancy Services
+      { name: 'Business Strategy & Planning', slug: 'business-strategy-planning', type: 'SERVICE', div: 'Consultancy Services' },
+      { name: 'Corporate Event Planning', slug: 'corporate-event-planning', type: 'SERVICE', div: 'Consultancy Services' },
+      { name: 'Financial Advisory & Tax', slug: 'financial-advisory-tax', type: 'SERVICE', div: 'Consultancy Services' },
+      { name: 'Digital Marketing & Branding', slug: 'digital-marketing-branding', type: 'SERVICE', div: 'Consultancy Services' },
+      { name: 'Corporate Training & Workshops', slug: 'corporate-training-workshops', type: 'SERVICE', div: 'Consultancy Services' },
+    ];
+
+    for (const cat of allKnownCategories) {
+      const divId = divMap[cat.div];
+      if (divId) {
+        await prisma.category.upsert({
+          where: { slug_businessDivisionId: { slug: cat.slug, businessDivisionId: divId } },
+          update: { name: cat.name, type: cat.type },
+          create: { name: cat.name, slug: cat.slug, type: cat.type, businessDivisionId: divId },
+        }).catch(() => {});
+      }
+    }
+  } catch (roleErr) {
+    console.warn('Role setup notice in autoMigrateDatabase:', roleErr.message);
+  }
+
   try {
     // Check if tables and divisions exist
     const count = await prisma.businessDivision.count();

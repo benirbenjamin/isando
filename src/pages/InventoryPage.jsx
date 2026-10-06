@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Package, ArrowUpRight, ArrowDownRight, RefreshCw, AlertTriangle, Plus, History } from 'lucide-react';
-import { api } from '../services/api';
+import { Package, ArrowUpRight, ArrowDownRight, RefreshCw, AlertTriangle, Plus, History, RotateCcw, User } from 'lucide-react';
+import { api, formatCurrency } from '../services/api';
+import SearchableSelect from '../components/SearchableSelect';
 
 export default function InventoryPage() {
   const [statusData, setStatusData] = useState(null);
   const [products, setProducts] = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [showTransModal, setShowTransModal] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -14,6 +16,9 @@ export default function InventoryPage() {
     variantId: '',
     type: 'STOCK_IN',
     quantity: 1,
+    customerId: '',
+    customerName: '',
+    refundAmount: '',
     note: '',
   });
   const [submitting, setSubmitting] = useState(false);
@@ -22,14 +27,16 @@ export default function InventoryPage() {
   async function loadInventory() {
     setLoading(true);
     try {
-      const [stRes, prodRes, txRes] = await Promise.all([
+      const [stRes, prodRes, txRes, custRes] = await Promise.all([
         api.get('/inventory/status'),
         api.get('/products?limit=100'),
         api.get('/inventory/transactions?limit=50'),
+        api.get('/customers').catch(() => ({ customers: [] })),
       ]);
       setStatusData(stRes);
       setProducts(prodRes.products || []);
       setTransactions(txRes.transactions || []);
+      setCustomers(custRes.customers || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -41,6 +48,33 @@ export default function InventoryPage() {
     loadInventory();
   }, []);
 
+  const handleProductSelect = (prodId) => {
+    const p = products.find(x => x.id === prodId);
+    setForm(prev => ({
+      ...prev,
+      productId: prodId,
+      variantId: '',
+      refundAmount: p ? ((p.salePrice || p.regularPrice) * prev.quantity).toString() : '',
+    }));
+  };
+
+  const handleCustomerSelect = (custId) => {
+    const c = customers.find(x => x.id === custId);
+    if (c) {
+      setForm(prev => ({
+        ...prev,
+        customerId: c.id,
+        customerName: c.name,
+      }));
+    } else {
+      setForm(prev => ({
+        ...prev,
+        customerId: '',
+        customerName: custId,
+      }));
+    }
+  };
+
   const handleTransaction = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -50,11 +84,22 @@ export default function InventoryPage() {
       await api.post('/inventory/transaction', {
         ...form,
         quantity: parseInt(form.quantity, 10),
+        refundAmount: form.refundAmount ? parseFloat(form.refundAmount) : undefined,
       });
 
       setShowTransModal(false);
-      setForm({ productId: '', variantId: '', type: 'STOCK_IN', quantity: 1, note: '' });
-      loadInventory();
+      setForm({
+        productId: '',
+        variantId: '',
+        type: 'STOCK_IN',
+        quantity: 1,
+        customerId: '',
+        customerName: '',
+        refundAmount: '',
+        note: '',
+      });
+      // Immediately reload without reloading the app
+      await loadInventory();
     } catch (err) {
       setError(err.message || 'Transaction failed');
     } finally {
@@ -66,6 +111,18 @@ export default function InventoryPage() {
 
   const selectedProduct = products.find(p => p.id === form.productId);
 
+  const productOptions = products.map(p => ({
+    value: p.id,
+    label: `${p.name} (Stock: ${p.stockQuantity})`,
+    subtitle: `Price: ${formatCurrency(p.salePrice || p.regularPrice)} • SKU: ${p.sku}`
+  }));
+
+  const customerOptions = customers.map(c => ({
+    value: c.id,
+    label: c.name,
+    subtitle: [c.phone, c.email].filter(Boolean).join(' • ')
+  }));
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -76,12 +133,15 @@ export default function InventoryPage() {
             <span>Inventory & Stock Management</span>
           </h1>
           <p className="text-xs text-brand-muted mt-1">
-            Stock In, Stock Out, Adjustments & Audit Trail History
+            Stock In, Stock Out, Customer Returns with Finance Sync & Audit Trail History
           </p>
         </div>
 
         <button
-          onClick={() => setShowTransModal(true)}
+          onClick={() => {
+            setError('');
+            setShowTransModal(true);
+          }}
           className="bg-brand-yellow hover:bg-brand-yellowDark text-brand-dark font-extrabold text-xs px-5 py-2.5 rounded-2xl shadow flex items-center gap-2 transition"
         >
           <Plus className="w-4 h-4" />
@@ -139,7 +199,7 @@ export default function InventoryPage() {
             <tbody className="divide-y divide-gray-100">
               {transactions.length > 0 ? (
                 transactions.map(t => (
-                  <tr key={t.id} className="hover:bg-gray-50">
+                  <tr key={t.id} className="hover:bg-gray-50 transition">
                     <td className="p-3 text-gray-500">{new Date(t.createdAt).toLocaleString()}</td>
                     <td className="p-3 font-bold text-brand-dark">{t.product?.name}</td>
                     <td className="p-3 text-gray-500">
@@ -168,11 +228,16 @@ export default function InventoryPage() {
 
       {/* Stock Transaction Modal */}
       {showTransModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-pop">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 space-y-4 shadow-2xl animate-pop max-h-[92vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b pb-3">
-              <h3 className="text-lg font-black text-brand-dark">Stock In / Stock Out Action</h3>
-              <button onClick={() => setShowTransModal(false)} className="text-gray-400 hover:text-red-500 font-bold text-xl">&times;</button>
+              <h3 className="text-lg font-black text-brand-dark">Stock In / Stock Out / Return Action</h3>
+              <button 
+                onClick={() => setShowTransModal(false)} 
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold flex items-center justify-center transition"
+              >
+                &times;
+              </button>
             </div>
 
             {error && <div className="bg-red-50 text-brand-red p-3 rounded-xl text-xs font-semibold">{error}</div>}
@@ -180,17 +245,13 @@ export default function InventoryPage() {
             <form onSubmit={handleTransaction} className="space-y-4 text-xs">
               <div>
                 <label className="font-bold text-brand-dark block mb-1">Select Product *</label>
-                <select
-                  required
+                <SearchableSelect
+                  options={productOptions}
                   value={form.productId}
-                  onChange={(e) => setForm({ ...form, productId: e.target.value, variantId: '' })}
-                  className="w-full p-2.5 bg-brand-soft border border-brand-border rounded-xl font-semibold"
-                >
-                  <option value="">-- Choose Product --</option>
-                  {products.map(p => (
-                    <option key={p.id} value={p.id}>{p.name} (Stock: {p.stockQuantity})</option>
-                  ))}
-                </select>
+                  onChange={handleProductSelect}
+                  placeholder="-- Search or Choose Product --"
+                  allowAddNew={false}
+                />
               </div>
 
               {selectedProduct?.variants && selectedProduct.variants.length > 0 && (
@@ -221,10 +282,49 @@ export default function InventoryPage() {
                   <option value="STOCK_IN">STOCK_IN (Restock (+))</option>
                   <option value="STOCK_OUT">STOCK_OUT (Dispatch (-))</option>
                   <option value="ADJUSTMENT">ADJUSTMENT (Set Absolute Qty (=))</option>
-                  <option value="RETURN">RETURN (Customer Return (+))</option>
+                  <option value="RETURN">RETURN (Customer Return (+) - Updates Overall Finance)</option>
                   <option value="DAMAGE">DAMAGE (Damaged Goods (-))</option>
                 </select>
               </div>
+
+              {/* Special Customer Return Section with Search and Finance Sync */}
+              {form.type === 'RETURN' && (
+                <div className="bg-amber-50/70 border border-amber-200 p-3.5 rounded-2xl space-y-3">
+                  <div className="flex items-center gap-1.5 text-amber-900 font-extrabold text-xs">
+                    <RotateCcw className="w-4 h-4 text-brand-red" />
+                    <span>Customer Return & Overall Finance Refund</span>
+                  </div>
+                  <p className="text-[11px] text-amber-700">
+                    Restocks item and posts a refund ledger to update overall finance automatically.
+                  </p>
+
+                  <div>
+                    <label className="font-bold text-gray-700 block mb-1">Select Returning Customer *</label>
+                    <SearchableSelect
+                      options={customerOptions}
+                      value={form.customerId}
+                      onChange={handleCustomerSelect}
+                      placeholder="-- Search Customer or Click Add New --"
+                      allowAddNew={true}
+                      addNewLabel="+ Add New Customer Name"
+                      onAddNew={(newName) => {
+                        setForm(prev => ({ ...prev, customerId: '', customerName: newName }));
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-gray-700 block mb-1">Refund Amount (Frw) *</label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 25000"
+                      value={form.refundAmount}
+                      onChange={(e) => setForm({ ...form, refundAmount: e.target.value })}
+                      className="w-full p-2.5 bg-white border border-amber-300 rounded-xl font-bold text-brand-red"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="font-bold text-brand-dark block mb-1">Quantity *</label>
@@ -233,7 +333,14 @@ export default function InventoryPage() {
                   min={1}
                   required
                   value={form.quantity}
-                  onChange={(e) => setForm({ ...form, quantity: e.target.value })}
+                  onChange={(e) => {
+                    const q = parseInt(e.target.value, 10) || 1;
+                    setForm(prev => ({
+                      ...prev,
+                      quantity: q,
+                      refundAmount: selectedProduct ? ((selectedProduct.salePrice || selectedProduct.regularPrice) * q).toString() : prev.refundAmount
+                    }));
+                  }}
                   className="w-full p-2.5 bg-brand-soft border border-brand-border rounded-xl font-bold"
                 />
               </div>
@@ -242,7 +349,7 @@ export default function InventoryPage() {
                 <label className="font-bold text-brand-dark block mb-1">Audit Note</label>
                 <input
                   type="text"
-                  placeholder="Reason / Invoice number"
+                  placeholder="Reason / Invoice number / Customer notes"
                   value={form.note}
                   onChange={(e) => setForm({ ...form, note: e.target.value })}
                   className="w-full p-2.5 bg-brand-soft border border-brand-border rounded-xl"
@@ -252,7 +359,7 @@ export default function InventoryPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full bg-brand-yellow hover:bg-brand-yellowDark text-brand-dark py-3 rounded-2xl font-black text-sm shadow transition"
+                className="w-full bg-brand-yellow hover:bg-brand-yellowDark text-brand-dark py-3.5 rounded-2xl font-black text-sm shadow-md transition"
               >
                 {submitting ? 'Recording Action...' : 'Save Stock Transaction'}
               </button>

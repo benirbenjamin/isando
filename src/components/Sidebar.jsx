@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, BarChart3, DollarSign, Package, ShoppingCart, 
@@ -6,20 +6,58 @@ import {
   Settings, FileText, Activity, LogOut, Tags, Layers
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../services/api';
 
 export default function Sidebar({ mobileOpen, setMobileOpen }) {
   const { user, logout, hasPermission } = useAuth();
+  const [badges, setBadges] = useState({
+    events: 0,
+    tasks: 0,
+    messages: 0,
+    inventory: 0,
+  });
+
+  useEffect(() => {
+    async function loadBadges() {
+      try {
+        const [evtRes, tskRes, convRes, invRes] = await Promise.all([
+          api.get('/events?limit=20').catch(() => ({ events: [] })),
+          api.get('/tasks?status=PENDING').catch(() => ({ tasks: [] })),
+          api.get('/messages/conversations').catch(() => ({ conversations: [] })),
+          api.get('/inventory/status').catch(() => ({ lowStockCount: 0 })),
+        ]);
+        
+        const activeEvts = (evtRes.events || []).filter(e => e.status === 'LIVE' || e.status === 'PLANNING').length;
+        const pendingTasks = (tskRes.tasks || []).length;
+        const unreadConvs = (convRes.conversations || []).filter(c => c.unreadCount > 0).length;
+        const lowStock = (invRes.lowStockCount || 0) + (invRes.outOfStockCount || 0);
+
+        setBadges({
+          events: activeEvts,
+          tasks: pendingTasks,
+          messages: unreadConvs,
+          inventory: lowStock,
+        });
+      } catch (err) {
+        console.error('Sidebar badges error:', err);
+      }
+    }
+
+    loadBadges();
+    const interval = setInterval(loadBadges, 20000);
+    return () => clearInterval(interval);
+  }, []);
 
   const navItems = [
     { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, perm: null },
     { label: 'Analytics', path: '/analytics', icon: BarChart3, perm: 'reports.view' },
     { label: 'Finance & Sales Log', path: '/finance', icon: DollarSign, perm: 'finance.view' },
-    { label: 'Inventory Stock', path: '/inventory', icon: Package, perm: 'inventory.view' },
+    { label: 'Inventory Stock', path: '/inventory', icon: Package, perm: 'inventory.view', badge: badges.inventory, badgeColor: 'bg-amber-600' },
     { label: 'Record Sale', path: '/sales', icon: ShoppingCart, perm: 'sales.create' },
-    { label: 'Events & Command Center', path: '/events', icon: Calendar, perm: 'events.view' },
-    { label: 'Tasks & Assignments', path: '/tasks', icon: CheckSquare, perm: 'tasks.view' },
+    { label: 'Events & Command Center', path: '/events', icon: Calendar, perm: 'events.view', badge: badges.events, badgeColor: 'bg-brand-red' },
+    { label: 'Tasks & Assignments', path: '/tasks', icon: CheckSquare, perm: 'tasks.view', badge: badges.tasks, badgeColor: 'bg-emerald-600' },
     { label: 'Announcements', path: '/announcements', icon: Megaphone, perm: null },
-    { label: 'Internal Messages', path: '/messages', icon: MessageSquare, perm: null },
+    { label: 'Internal Messages', path: '/messages', icon: MessageSquare, perm: null, badge: badges.messages, badgeColor: 'bg-blue-600' },
     { label: 'Products Management', path: '/products-management', icon: Package, perm: 'products.view' },
     { label: 'Services Management', path: '/services-management', icon: Layers, perm: 'services.view' },
     { label: 'Divisions & Categories', path: '/categories', icon: Tags, perm: 'products.create' },
@@ -66,22 +104,30 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
           </div>
         </div>
 
-        {/* Nav Links List */}
+        {/* Nav Links List with Badges */}
         <div className="flex-1 overflow-y-auto p-3 space-y-1 no-scrollbar">
           {visibleItems.map(item => {
             const Icon = item.icon;
+            const hasBadge = Boolean(item.badge && item.badge > 0);
             return (
               <NavLink
                 key={item.path}
                 to={item.path}
                 onClick={() => setMobileOpen(false)}
                 className={({ isActive }) => `
-                  flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold text-xs transition
+                  flex items-center justify-between px-3.5 py-2.5 rounded-xl font-bold text-xs transition group
                   ${isActive ? 'bg-brand-yellow text-brand-dark shadow-md' : 'hover:bg-gray-800 text-gray-300'}
                 `}
               >
-                <Icon className="w-4 h-4 flex-shrink-0" />
-                <span className="truncate">{item.label}</span>
+                <div className="flex items-center gap-3 truncate">
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  <span className="truncate">{item.label}</span>
+                </div>
+                {hasBadge && (
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full text-white shadow-sm flex-shrink-0 ${item.badgeColor || 'bg-brand-red'}`}>
+                    {item.badge}
+                  </span>
+                )}
               </NavLink>
             );
           })}
@@ -102,8 +148,8 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
 
             <button
               onClick={logout}
-              className="p-2 text-gray-400 hover:text-brand-red hover:bg-gray-800 rounded-lg transition"
-              title="Sign Out"
+              className="p-1.5 text-gray-400 hover:text-brand-red hover:bg-gray-800 rounded-lg transition flex-shrink-0"
+              title="Logout"
             >
               <LogOut className="w-4 h-4" />
             </button>

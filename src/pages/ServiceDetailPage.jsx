@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { MapPin, MessageCircle, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { api, formatCurrency, getWhatsAppLink } from '../services/api';
+import ImageSlider from '../components/ImageSlider';
 
 export default function ServiceDetailPage() {
   const { id } = useParams();
@@ -37,7 +38,6 @@ export default function ServiceDetailPage() {
   }
 
   const images = Array.isArray(service.images) ? service.images : JSON.parse(service.images || '[]');
-  const mainImage = images[0] || 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=70';
   const features = Array.isArray(service.features) ? service.features : JSON.parse(service.features || '[]');
 
   const waMsg = `Hello Romantic T Solutions, I am interested in your ${service.name} service. I would like to know more about availability and pricing.`;
@@ -53,9 +53,7 @@ export default function ServiceDetailPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 bg-white border border-brand-border rounded-3xl p-6 sm:p-8 shadow-sm">
         <div className="space-y-4">
-          <div className="aspect-video rounded-2xl overflow-hidden bg-brand-soft border border-brand-border">
-            <img src={mainImage} alt={service.name} className="w-full h-full object-cover" />
-          </div>
+          <ImageSlider images={images} title={service.name} aspectRatio="aspect-video" />
         </div>
 
         <div className="flex flex-col justify-between space-y-6">

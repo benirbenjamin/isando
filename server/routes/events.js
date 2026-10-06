@@ -93,9 +93,38 @@ router.get('/:id', authenticateToken, hasPermission('events.view'), async (req, 
       blocked: event.tasks.filter(t => t.status === 'BLOCKED').length,
     };
 
+    // Ensure linked team discussion conversation exists for event
+    let eventConversation = null;
+    try {
+      eventConversation = await prisma.conversation.findFirst({
+        where: { relatedEntityId: event.id, type: 'EVENT' }
+      });
+      if (!eventConversation) {
+        eventConversation = await prisma.conversation.create({
+          data: {
+            title: `${event.name} - Event Team Chat`,
+            type: 'EVENT',
+            relatedEntityId: event.id,
+            members: {
+              create: [
+                { userId: req.user.id },
+                ...event.assignments.map(a => ({ userId: a.userId }))
+              ]
+            }
+          }
+        });
+      }
+    } catch (cErr) {
+      console.warn('Event chat setup notice:', cErr.message);
+    }
+
     return res.json({
-      event,
+      event: {
+        ...event,
+        conversationId: eventConversation?.id || null,
+      },
       commandCenter: {
+        conversationId: eventConversation?.id || null,
         teamRoleStats,
         attendance: {
           totalAssigned,

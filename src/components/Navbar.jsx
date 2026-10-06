@@ -50,6 +50,9 @@ export default function Navbar() {
 
           {/* Right Navigation */}
           <div className="flex items-center gap-2 sm:gap-3">
+            <Link to="/" className="px-3 py-1.5 text-sm font-bold text-brand-dark hover:text-brand-red flex items-center gap-1 transition">
+              <span>Home</span>
+            </Link>
             <Link to="/products" className="hidden md:inline-block px-3 py-1.5 text-sm font-semibold text-gray-700 hover:text-brand-red">
               Products
             </Link>

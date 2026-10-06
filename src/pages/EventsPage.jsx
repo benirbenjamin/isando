@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Plus, Users, ArrowRight, UserPlus, Phone, MapPin } from 'lucide-react';
+import { Calendar, Plus, Users, ArrowRight, UserPlus, Phone, MapPin, Sparkles, MessageSquare } from 'lucide-react';
 import { api } from '../services/api';
+import SearchableSelect from '../components/SearchableSelect';
 
 export default function EventsPage() {
   const [events, setEvents] = useState([]);
@@ -10,6 +11,24 @@ export default function EventsPage() {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Dynamic Event Types with LocalStorage persistence
+  const [eventTypes, setEventTypes] = useState(() => {
+    try {
+      const saved = localStorage.getItem('isando_event_types');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return ['Wedding', 'Conference', 'Party', 'Corporate Event', 'Birthday', 'Anniversary', 'Gusaba & Kuva Ku Muriro', 'Gukwa', 'Concert'];
+  });
+
+  // Dynamic Duty Roles with LocalStorage persistence
+  const [dutyRoles, setDutyRoles] = useState(() => {
+    try {
+      const saved = localStorage.getItem('isando_duty_roles');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return ['Photographer', 'Videographer', 'Kitchen Chef', 'Waiter', 'Driver', 'MC', 'Decorator', 'Event Manager', 'Sound Engineer', 'Lighting Specialist', 'Security Officer'];
+  });
 
   // Form states
   const [eventForm, setEventForm] = useState({
@@ -51,6 +70,28 @@ export default function EventsPage() {
     loadEventsData();
   }, []);
 
+  const handleAddNewEventType = (newType) => {
+    const trimmed = newType.trim();
+    if (!trimmed) return;
+    if (!eventTypes.includes(trimmed)) {
+      const updated = [...eventTypes, trimmed];
+      setEventTypes(updated);
+      try { localStorage.setItem('isando_event_types', JSON.stringify(updated)); } catch {}
+    }
+    setEventForm(prev => ({ ...prev, eventType: trimmed }));
+  };
+
+  const handleAddNewDutyRole = (newRole) => {
+    const trimmed = newRole.trim();
+    if (!trimmed) return;
+    if (!dutyRoles.includes(trimmed)) {
+      const updated = [...dutyRoles, trimmed];
+      setDutyRoles(updated);
+      try { localStorage.setItem('isando_duty_roles', JSON.stringify(updated)); } catch {}
+    }
+    setAssignForm(prev => ({ ...prev, roleName: trimmed }));
+  };
+
   const handleCreateEvent = async (e) => {
     e.preventDefault();
     setError('');
@@ -58,7 +99,8 @@ export default function EventsPage() {
     try {
       await api.post('/events', eventForm);
       setShowEventModal(false);
-      loadEventsData();
+      // Auto-load without reloading the app
+      await loadEventsData();
     } catch (err) {
       setError(err.message || 'Failed to create event');
     }
@@ -71,13 +113,20 @@ export default function EventsPage() {
     try {
       await api.post(`/events/${selectedEventId}/assign`, assignForm);
       setShowAssignModal(false);
-      loadEventsData();
+      // Auto-load without reloading the app
+      await loadEventsData();
     } catch (err) {
       alert(err.message);
     }
   };
 
   if (loading) return <div className="text-center py-12 text-xs font-bold text-gray-400">Loading events data...</div>;
+
+  const workerOptions = workers.map(w => ({
+    value: w.id,
+    label: w.fullName,
+    subtitle: `${w.role?.name || 'Staff'} • ${w.phone || w.email || 'No contact'}`
+  }));
 
   return (
     <div className="space-y-8">
@@ -89,12 +138,15 @@ export default function EventsPage() {
             <span>Event Operations Management</span>
           </h1>
           <p className="text-xs text-brand-muted mt-1">
-            Weddings, Conferences, Parties & Live Command Centers
+            Weddings, Conferences, Parties, Team Chat & Live Command Centers
           </p>
         </div>
 
         <button
-          onClick={() => setShowEventModal(true)}
+          onClick={() => {
+            setError('');
+            setShowEventModal(true);
+          }}
           className="bg-brand-red hover:bg-brand-redDark text-white font-extrabold text-xs px-5 py-2.5 rounded-2xl shadow flex items-center gap-2 transition"
         >
           <Plus className="w-4 h-4" />
@@ -105,28 +157,30 @@ export default function EventsPage() {
       {/* Events List */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {events.map(evt => (
-          <div key={evt.id} className="bg-white border border-brand-border rounded-2xl p-6 shadow-sm space-y-4 flex flex-col justify-between">
+          <div key={evt.id} className="bg-white border border-brand-border rounded-2xl p-6 shadow-sm space-y-4 flex flex-col justify-between hover:shadow-md transition">
             <div>
               <div className="flex items-center justify-between gap-2 mb-2">
                 <span className={`text-xs font-black px-3 py-1 rounded-full uppercase ${evt.status === 'LIVE' ? 'bg-red-500 text-white animate-pulse' : 'bg-brand-yellow text-brand-dark'}`}>
                   {evt.status}
                 </span>
-                <span className="text-xs font-bold text-gray-400">{evt.eventType}</span>
+                <span className="text-xs font-bold text-gray-500 bg-brand-soft px-2.5 py-0.5 rounded-full border border-brand-border">
+                  {evt.eventType}
+                </span>
               </div>
 
               <h3 className="text-xl font-black text-brand-dark">{evt.name}</h3>
 
-              <div className="space-y-1 mt-3 text-xs text-gray-600">
+              <div className="space-y-1.5 mt-3 text-xs text-gray-600">
                 <div className="flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-brand-red" />
+                  <MapPin className="w-3.5 h-3.5 text-brand-red flex-shrink-0" />
                   <span>Venue: <strong>{evt.venue}</strong></span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                  <Phone className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
                   <span>Client: {evt.clientName} ({evt.clientPhone})</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-brand-yellow" />
+                  <Calendar className="w-3.5 h-3.5 text-brand-yellow flex-shrink-0" />
                   <span>Date: {new Date(evt.date).toLocaleDateString()} ({evt.startTime} - {evt.endTime})</span>
                 </div>
               </div>
@@ -137,8 +191,9 @@ export default function EventsPage() {
                 <div className="flex flex-wrap gap-1.5">
                   {evt.assignments && evt.assignments.length > 0 ? (
                     evt.assignments.map(a => (
-                      <span key={a.id} className="bg-brand-soft border border-brand-border text-[10px] font-bold px-2 py-0.5 rounded-md text-brand-dark">
-                        {a.user?.fullName} ({a.roleName})
+                      <span key={a.id} className="bg-brand-soft border border-brand-border text-[10px] font-bold px-2 py-0.5 rounded-md text-brand-dark flex items-center gap-1">
+                        <span>{a.user?.fullName}</span>
+                        <span className="text-brand-red font-black">({a.roleName})</span>
                       </span>
                     ))
                   ) : (
@@ -148,7 +203,7 @@ export default function EventsPage() {
               </div>
             </div>
 
-            <div className="pt-4 border-t flex gap-2">
+            <div className="pt-4 border-t flex flex-wrap gap-2">
               <button
                 onClick={() => { setSelectedEventId(evt.id); setShowAssignModal(true); }}
                 className="flex-1 bg-gray-100 hover:bg-gray-200 text-brand-dark py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition"
@@ -171,11 +226,16 @@ export default function EventsPage() {
 
       {/* Create Event Modal */}
       {showEventModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-pop">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 space-y-4 shadow-2xl animate-pop max-h-[92vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b pb-3">
               <h3 className="text-lg font-black text-brand-dark">Create New Event</h3>
-              <button onClick={() => setShowEventModal(false)} className="text-gray-400 hover:text-red-500 font-bold text-xl">&times;</button>
+              <button 
+                onClick={() => setShowEventModal(false)} 
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold flex items-center justify-center transition"
+              >
+                &times;
+              </button>
             </div>
 
             {error && <div className="bg-red-50 text-brand-red p-3 rounded-xl text-xs font-semibold">{error}</div>}
@@ -186,7 +246,7 @@ export default function EventsPage() {
                 <input
                   type="text"
                   required
-                  placeholder="Wedding of John & Alice"
+                  placeholder="e.g. Wedding of John & Alice"
                   value={eventForm.name}
                   onChange={(e) => setEventForm({ ...eventForm, name: e.target.value })}
                   className="w-full p-2.5 bg-brand-soft border border-brand-border rounded-xl font-bold"
@@ -220,18 +280,18 @@ export default function EventsPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
+                {/* Searchable Event Type with + Add New */}
                 <div>
-                  <label className="font-bold text-brand-dark block mb-1">Event Type</label>
-                  <select
+                  <label className="font-bold text-brand-dark block mb-1">Event Type *</label>
+                  <SearchableSelect
+                    options={eventTypes}
                     value={eventForm.eventType}
-                    onChange={(e) => setEventForm({ ...eventForm, eventType: e.target.value })}
-                    className="w-full p-2.5 bg-brand-soft border border-brand-border rounded-xl font-bold"
-                  >
-                    <option value="Wedding">Wedding</option>
-                    <option value="Conference">Conference</option>
-                    <option value="Party">Party</option>
-                    <option value="Corporate">Corporate Event</option>
-                  </select>
+                    onChange={(val) => setEventForm({ ...eventForm, eventType: val })}
+                    placeholder="-- Select Event Type --"
+                    allowAddNew={true}
+                    addNewLabel="+ Add New Event Type"
+                    onAddNew={handleAddNewEventType}
+                  />
                 </div>
 
                 <div>
@@ -280,9 +340,20 @@ export default function EventsPage() {
                 </div>
               </div>
 
+              <div>
+                <label className="font-bold text-brand-dark block mb-1">Event Description & Requirements</label>
+                <textarea
+                  rows={2}
+                  placeholder="Equipment required, guest count, schedule details..."
+                  value={eventForm.description}
+                  onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })}
+                  className="w-full p-2.5 bg-brand-soft border border-brand-border rounded-xl"
+                />
+              </div>
+
               <button
                 type="submit"
-                className="w-full bg-brand-red hover:bg-brand-redDark text-white py-3 rounded-2xl font-black text-sm shadow transition"
+                className="w-full bg-brand-red hover:bg-brand-redDark text-white py-3.5 rounded-2xl font-black text-sm shadow-lg shine-effect transition"
               >
                 Create Event
               </button>
@@ -291,52 +362,48 @@ export default function EventsPage() {
         </div>
       )}
 
-      {/* Assign Worker Modal */}
+      {/* Assign Worker Modal with Searchable Staff and Searchable Role (+ Add Custom Role) */}
       {showAssignModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-pop">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 space-y-4 shadow-2xl animate-pop max-h-[92vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b pb-3">
               <h3 className="text-lg font-black text-brand-dark">Assign Worker to Event</h3>
-              <button onClick={() => setShowAssignModal(false)} className="text-gray-400 hover:text-red-500 font-bold text-xl">&times;</button>
+              <button 
+                onClick={() => setShowAssignModal(false)} 
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold flex items-center justify-center transition"
+              >
+                &times;
+              </button>
             </div>
 
             <form onSubmit={handleAssignWorker} className="space-y-4 text-xs">
               <div>
                 <label className="font-bold text-brand-dark block mb-1">Select Worker Staff *</label>
-                <select
-                  required
+                <SearchableSelect
+                  options={workerOptions}
                   value={assignForm.userId}
-                  onChange={(e) => setAssignForm({ ...assignForm, userId: e.target.value })}
-                  className="w-full p-2.5 bg-brand-soft border border-brand-border rounded-xl font-bold"
-                >
-                  <option value="">-- Choose Worker --</option>
-                  {workers.map(w => (
-                    <option key={w.id} value={w.id}>{w.fullName} ({w.role?.name})</option>
-                  ))}
-                </select>
+                  onChange={(val) => setAssignForm({ ...assignForm, userId: val })}
+                  placeholder="-- Search or Choose Staff --"
+                  allowAddNew={false}
+                />
               </div>
 
               <div>
                 <label className="font-bold text-brand-dark block mb-1">Event Duty Role *</label>
-                <select
+                <SearchableSelect
+                  options={dutyRoles}
                   value={assignForm.roleName}
-                  onChange={(e) => setAssignForm({ ...assignForm, roleName: e.target.value })}
-                  className="w-full p-2.5 bg-brand-soft border border-brand-border rounded-xl font-bold"
-                >
-                  <option value="Photographer">Photographer</option>
-                  <option value="Videographer">Videographer</option>
-                  <option value="Kitchen Chef">Kitchen Chef</option>
-                  <option value="Waiter">Waiter</option>
-                  <option value="Driver">Driver</option>
-                  <option value="MC">MC</option>
-                  <option value="Decorator">Decorator</option>
-                  <option value="Event Manager">Event Manager</option>
-                </select>
+                  onChange={(val) => setAssignForm({ ...assignForm, roleName: val })}
+                  placeholder="-- Select Duty Role --"
+                  allowAddNew={true}
+                  addNewLabel="+ Add Custom Role / Duty"
+                  onAddNew={handleAddNewDutyRole}
+                />
               </div>
 
               <button
                 type="submit"
-                className="w-full bg-brand-yellow hover:bg-brand-yellowDark text-brand-dark py-3 rounded-2xl font-black text-sm shadow transition"
+                className="w-full bg-brand-yellow hover:bg-brand-yellowDark text-brand-dark py-3.5 rounded-2xl font-black text-sm shadow-md transition"
               >
                 Confirm Assignment
               </button>
