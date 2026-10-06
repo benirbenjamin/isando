@@ -194,6 +194,12 @@ router.put('/profile/me', authenticateToken, async (req, res) => {
       }
     });
 
+    return res.json({ user: updated });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 /**
  * Delete User Account
  */
