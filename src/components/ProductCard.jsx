@@ -1,13 +1,15 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ShoppingBag, MessageCircle } from 'lucide-react';
-import { formatCurrency, calcDiscountPct, getWhatsAppLink, getImageUrl } from '../services/api';
+import { formatCurrency, calcDiscountPct, getWhatsAppLink, getImageUrl, getImageBackupUrl } from '../services/api';
 
 export default function ProductCard({ product }) {
   const images = Array.isArray(product.images) 
     ? product.images 
     : (typeof product.images === 'string' ? JSON.parse(product.images || '[]') : []);
-  const mainImage = getImageUrl(images[0], 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&q=70');
+  const coverItem = product.featuredImage || images[0];
+  const mainImage = getImageUrl(coverItem, 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&q=70');
+  const backupImage = getImageBackupUrl(coverItem);
 
   const discount = calcDiscountPct(product.regularPrice, product.salePrice);
   const isOutOfStock = product.stockQuantity === 0;
@@ -39,8 +41,12 @@ export default function ProductCard({ product }) {
           className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500"
           loading="lazy"
           onError={(e) => {
-            e.target.onerror = null;
-            e.target.src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=70';
+            if (backupImage && e.target.src !== backupImage) {
+              e.target.src = backupImage;
+            } else {
+              e.target.onerror = null;
+              e.target.src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=70';
+            }
           }}
         />
       </Link>

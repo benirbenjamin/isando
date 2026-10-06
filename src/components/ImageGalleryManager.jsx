@@ -20,7 +20,7 @@ export default function ImageGalleryManager({
       const formData = new FormData();
       formData.append('file', file);
       const res = await api.post('/upload', formData);
-      onFeaturedChange(res.url);
+      onFeaturedChange(res.url, res.backupUrl);
     } catch (err) {
       alert('Upload failed: ' + err.message);
     } finally {
@@ -38,7 +38,7 @@ export default function ImageGalleryManager({
       formData.append('file', file);
       const res = await api.post('/upload', formData);
       const updated = [...gallery];
-      updated[idx] = { ...updated[idx], url: res.url };
+      updated[idx] = { ...updated[idx], url: res.url, backupUrl: res.backupUrl || null };
       onGalleryChange(updated);
     } catch (err) {
       alert('Upload failed: ' + err.message);

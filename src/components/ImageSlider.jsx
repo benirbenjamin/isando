@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, Maximize2, X, Image as ImageIcon } from 'lucide-react';
-import { getImageUrl, getImageCaption } from '../services/api';
+import { getImageUrl, getImageCaption, getImageBackupUrl } from '../services/api';
 
 export default function ImageSlider({ images = [], title = '', aspectRatio = 'aspect-square' }) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -14,8 +14,9 @@ export default function ImageSlider({ images = [], title = '', aspectRatio = 'as
   const normalizedList = rawList
     .map((item, idx) => {
       const url = getImageUrl(item);
+      const backupUrl = getImageBackupUrl(item);
       const caption = getImageCaption(item);
-      return { url, caption, id: idx };
+      return { url, backupUrl, caption, id: idx };
     })
     .filter(item => Boolean(item.url));
 
@@ -45,8 +46,12 @@ export default function ImageSlider({ images = [], title = '', aspectRatio = 'as
           className="w-full h-full object-cover transition-transform duration-500 cursor-pointer"
           onClick={() => setFullscreen(true)}
           onError={(e) => {
-            e.target.onerror = null;
-            e.target.src = 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=800&q=70';
+            if (activeSlide.backupUrl && e.target.src !== activeSlide.backupUrl) {
+              e.target.src = activeSlide.backupUrl;
+            } else {
+              e.target.onerror = null;
+              e.target.src = 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=800&q=70';
+            }
           }}
         />
 

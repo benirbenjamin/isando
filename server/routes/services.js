@@ -1,9 +1,19 @@
 import express from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../database/prisma.js';
 import { authenticateToken, hasPermission } from '../middleware/auth.js';
 
 const router = express.Router();
-const prisma = new PrismaClient();
+
+function safeParseJson(str, fallback = []) {
+  if (!str) return fallback;
+  if (Array.isArray(str)) return str;
+  if (typeof str === 'object') return [str];
+  try {
+    return JSON.parse(str);
+  } catch {
+    return [str];
+  }
+}
 
 /**
  * Public & Admin: List services
@@ -65,8 +75,8 @@ router.get('/', async (req, res) => {
 
     const formatted = services.map(s => ({
       ...s,
-      images: JSON.parse(s.images || '[]'),
-      features: JSON.parse(s.features || '[]'),
+      images: safeParseJson(s.images, []),
+      features: safeParseJson(s.features, []),
     }));
 
     return res.json({ services: formatted });
@@ -92,8 +102,8 @@ router.get('/:id', async (req, res) => {
 
     return res.json({
       ...service,
-      images: JSON.parse(service.images || '[]'),
-      features: JSON.parse(service.features || '[]'),
+      images: safeParseJson(service.images, []),
+      features: safeParseJson(service.features, []),
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });

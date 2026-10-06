@@ -1,9 +1,8 @@
 import express from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../database/prisma.js';
 import { authenticateToken, hasPermission } from '../middleware/auth.js';
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 function slugify(text) {
   return text.toString().toLowerCase().trim()

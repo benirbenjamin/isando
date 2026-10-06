@@ -1,9 +1,19 @@
 import express from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../database/prisma.js';
 import { authenticateToken, hasPermission } from '../middleware/auth.js';
 
 const router = express.Router();
-const prisma = new PrismaClient();
+
+function safeParseJson(str, fallback = []) {
+  if (!str) return fallback;
+  if (Array.isArray(str)) return str;
+  if (typeof str === 'object') return [str];
+  try {
+    return JSON.parse(str);
+  } catch {
+    return [str];
+  }
+}
 
 // Helper to calculate discount percentage
 function calcDiscount(regularPrice, salePrice) {
@@ -88,7 +98,7 @@ router.get('/', async (req, res) => {
 
     const formatted = products.map(p => ({
       ...p,
-      images: JSON.parse(p.images || '[]'),
+      images: safeParseJson(p.images, []),
     }));
 
     return res.json({ total, products: formatted });
@@ -117,7 +127,7 @@ router.get('/:id', async (req, res) => {
 
     return res.json({
       ...product,
-      images: JSON.parse(product.images || '[]'),
+      images: safeParseJson(product.images, []),
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });

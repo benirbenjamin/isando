@@ -1,13 +1,15 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, MessageCircle, ArrowRight } from 'lucide-react';
-import { formatCurrency, getWhatsAppLink, getImageUrl } from '../services/api';
+import { formatCurrency, getWhatsAppLink, getImageUrl, getImageBackupUrl } from '../services/api';
 
 export default function ServiceCard({ service }) {
   const images = Array.isArray(service.images) 
     ? service.images 
     : (typeof service.images === 'string' ? JSON.parse(service.images || '[]') : []);
-  const mainImage = getImageUrl(images[0], 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=600&q=70');
+  const coverItem = service.featuredImage || images[0];
+  const mainImage = getImageUrl(coverItem, 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=600&q=70');
+  const backupImage = getImageBackupUrl(coverItem);
 
   const waMsg = `Hello Romantic T Solutions, I am interested in your ${service.name} service. I would like to know more about availability and pricing.`;
 
@@ -20,8 +22,12 @@ export default function ServiceCard({ service }) {
           className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500"
           loading="lazy"
           onError={(e) => {
-            e.target.onerror = null;
-            e.target.src = 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=600&q=70';
+            if (backupImage && e.target.src !== backupImage) {
+              e.target.src = backupImage;
+            } else {
+              e.target.onerror = null;
+              e.target.src = 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=600&q=70';
+            }
           }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-80" />

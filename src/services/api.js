@@ -15,11 +15,33 @@ export function getWhatsAppLink(phone = '250786639945', message = '') {
   return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
 }
 
+export function formatDriveCdnUrl(url) {
+  if (!url || typeof url !== 'string') return url;
+  if (url.includes('drive.google.com/uc?export=view&id=')) {
+    const id = url.split('id=')[1]?.split('&')[0];
+    if (id) return `https://lh3.googleusercontent.com/d/${id}`;
+  }
+  if (url.includes('drive.google.com/file/d/')) {
+    const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (match && match[1]) return `https://lh3.googleusercontent.com/d/${match[1]}`;
+  }
+  return url;
+}
+
 export function getImageUrl(item, fallback = '') {
   if (!item) return fallback;
-  if (typeof item === 'string') return item;
-  if (typeof item === 'object' && item.url) return item.url;
+  if (typeof item === 'string') return formatDriveCdnUrl(item);
+  if (typeof item === 'object') {
+    const rawUrl = item.url || item.backupUrl;
+    if (rawUrl) return formatDriveCdnUrl(rawUrl);
+  }
   return fallback;
+}
+
+export function getImageBackupUrl(item) {
+  if (!item || typeof item !== 'object') return null;
+  const backup = item.backupUrl || null;
+  return backup ? formatDriveCdnUrl(backup) : null;
 }
 
 export function getImageCaption(item, fallback = '') {

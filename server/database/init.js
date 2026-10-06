@@ -1,15 +1,12 @@
 import fs from 'fs';
 import path from 'path';
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-
-if (process.env.DATABASE_URL && process.env.DATABASE_URL.startsWith('postgres://')) {
-  process.env.DATABASE_URL = process.env.DATABASE_URL.replace('postgres://', 'postgresql://');
-}
-
-const prisma = new PrismaClient();
+import prisma from './prisma.js';
 
 async function ensureTablesExist() {
+  if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('sqlite') && !process.env.DATABASE_URL.includes('.db')) {
+    return; // PostgreSQL schema is handled safely by Prisma
+  }
   const createTablesSQL = [
     `CREATE TABLE IF NOT EXISTS "User" (
       "id" TEXT NOT NULL PRIMARY KEY,

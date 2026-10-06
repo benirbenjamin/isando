@@ -59,9 +59,18 @@ export default function ProductDetailPage() {
     );
   }
 
-  const images = Array.isArray(product.images) 
-    ? product.images 
-    : (typeof product.images === 'string' ? JSON.parse(product.images || '[]') : []);
+  let images = [];
+  try {
+    images = Array.isArray(product.images) 
+      ? product.images 
+      : (typeof product.images === 'string' ? JSON.parse(product.images || '[]') : []);
+  } catch {
+    images = product.images ? [product.images] : [];
+  }
+
+  if (product.featuredImage && !images.some(img => (typeof img === 'string' ? img === product.featuredImage : img?.url === product.featuredImage))) {
+    images = [{ url: product.featuredImage, caption: 'Featured Cover' }, ...images];
+  }
 
   const discount = calcDiscountPct(product.regularPrice, product.salePrice);
   const isOutOfStock = product.stockQuantity === 0;

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, MessageCircle, User, LogIn, LayoutDashboard } from 'lucide-react';
+import { Search, MessageCircle, User, LogIn, LayoutDashboard, Home } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getWhatsAppLink } from '../services/api';
 
@@ -50,7 +50,8 @@ export default function Navbar() {
 
           {/* Right Navigation */}
           <div className="flex items-center gap-2 sm:gap-3">
-            <Link to="/" className="px-3 py-1.5 text-sm font-bold text-brand-dark hover:text-brand-red flex items-center gap-1 transition">
+            <Link to="/" className="px-3 py-1.5 text-sm font-bold text-brand-dark hover:text-brand-red flex items-center gap-1.5 transition">
+              <Home className="w-4 h-4 text-brand-red" />
               <span>Home</span>
             </Link>
             <Link to="/products" className="hidden md:inline-block px-3 py-1.5 text-sm font-semibold text-gray-700 hover:text-brand-red">

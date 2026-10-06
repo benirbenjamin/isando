@@ -1,9 +1,8 @@
 import express from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../database/prisma.js';
 import { authenticateToken, hasPermission } from '../middleware/auth.js';
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 /**
  * Record a new sale (with atomic DB transaction & stock update)

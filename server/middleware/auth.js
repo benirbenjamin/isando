@@ -1,7 +1,6 @@
 import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../database/prisma.js';
 
-const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'romantic_t_solutions_super_secret_jwt_key_2026';
 
 export async function authenticateToken(req, res, next) {

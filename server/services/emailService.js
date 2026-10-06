@@ -1,8 +1,7 @@
 import { Resend } from 'resend';
 import nodemailer from 'nodemailer';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../database/prisma.js';
 
-const prisma = new PrismaClient();
 
 async function getSetting(key) {
   try {

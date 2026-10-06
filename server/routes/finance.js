@@ -1,9 +1,8 @@
 import express from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../database/prisma.js';
 import { authenticateToken, hasPermission } from '../middleware/auth.js';
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 router.get('/summary', authenticateToken, hasPermission('finance.view'), async (req, res) => {
   try {

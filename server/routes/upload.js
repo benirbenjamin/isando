@@ -14,14 +14,18 @@ router.post('/', authenticateToken, upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const fileUrl = await uploadFile(
+    const uploadResult = await uploadFile(
       req.file.buffer,
       req.file.originalname,
       req.file.mimetype
     );
 
+    const fileUrl = typeof uploadResult === 'object' ? uploadResult.url : uploadResult;
+    const backupUrl = typeof uploadResult === 'object' ? uploadResult.backupUrl : null;
+
     return res.json({
       url: fileUrl,
+      backupUrl: backupUrl || null,
       originalName: req.file.originalname,
       size: req.file.size,
     });

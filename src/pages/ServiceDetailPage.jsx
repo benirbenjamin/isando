@@ -37,8 +37,23 @@ export default function ServiceDetailPage() {
     );
   }
 
-  const images = Array.isArray(service.images) ? service.images : JSON.parse(service.images || '[]');
-  const features = Array.isArray(service.features) ? service.features : JSON.parse(service.features || '[]');
+  let images = [];
+  try {
+    images = Array.isArray(service.images) ? service.images : JSON.parse(service.images || '[]');
+  } catch {
+    images = service.images ? [service.images] : [];
+  }
+
+  if (service.featuredImage && !images.some(img => (typeof img === 'string' ? img === service.featuredImage : img?.url === service.featuredImage))) {
+    images = [{ url: service.featuredImage, caption: 'Featured Cover' }, ...images];
+  }
+
+  let features = [];
+  try {
+    features = Array.isArray(service.features) ? service.features : JSON.parse(service.features || '[]');
+  } catch {
+    features = [];
+  }
 
   const waMsg = `Hello Romantic T Solutions, I am interested in your ${service.name} service. I would like to know more about availability and pricing.`;
 

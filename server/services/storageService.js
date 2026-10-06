@@ -3,11 +3,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { put as vercelPut } from '@vercel/blob';
 import { google } from 'googleapis';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../database/prisma.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const prisma = new PrismaClient();
 
 const isVercel = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
 const UPLOADS_DIR = isVercel ? '/tmp/uploads' : path.join(__dirname, '../../uploads');
@@ -106,7 +105,7 @@ async function uploadToGoogleDriveAccount(fileBuffer, originalName, accountConfi
     requestBody: { role: 'reader', type: 'anyone' },
   });
 
-  return `https://drive.google.com/uc?export=view&id=${file.data.id}`;
+  return `https://lh3.googleusercontent.com/d/${file.data.id}`;
 }
 
 export async function uploadFile(fileBuffer, originalName, mimeType = 'image/jpeg') {
@@ -148,13 +147,16 @@ export async function uploadFile(fileBuffer, originalName, mimeType = 'image/jpe
     }
   }
 
-  // Return best available cloud URL
-  if (vercelBlobUrl) return vercelBlobUrl;
-  if (googleDriveUrl) return googleDriveUrl;
+  // Return cloud URLs with Drive failover if both exist
+  if (vercelBlobUrl && googleDriveUrl) {
+    return { url: vercelBlobUrl, backupUrl: googleDriveUrl };
+  }
+  if (vercelBlobUrl) return { url: vercelBlobUrl, backupUrl: null };
+  if (googleDriveUrl) return { url: googleDriveUrl, backupUrl: null };
 
   // 3. Fallback: Direct Base64 Data URI so image is ALWAYS 100% visible and NEVER produces a 404 broken image
   console.log('🖼️ Cloud storage not configured yet: encoding as resilient direct Data URI so image is immediately visible everywhere...');
   const base64 = fileBuffer.toString('base64');
   const safeMime = mimeType || 'image/jpeg';
-  return `data:${safeMime};base64,${base64}`;
+  return { url: `data:${safeMime};base64,${base64}`, backupUrl: null };
 }

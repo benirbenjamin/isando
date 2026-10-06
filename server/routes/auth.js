@@ -1,12 +1,10 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../database/prisma.js';
 import { generateToken, authenticateToken } from '../middleware/auth.js';
 import { sendOtpEmail } from '../services/emailService.js';
-import { autoMigrateDatabase } from '../database/init.js';
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 /**
  * 1. User Signup (Full Name + Email -> OTP Code sent to email)
@@ -21,14 +19,7 @@ router.post('/signup', async (req, res) => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanName = fullName.trim();
 
-    // Check if user exists, or create new user account
-    let user = null;
-    try {
-      user = await prisma.user.findUnique({ where: { email: cleanEmail } });
-    } catch {
-      await autoMigrateDatabase().catch(() => {});
-      user = await prisma.user.findUnique({ where: { email: cleanEmail } }).catch(() => null);
-    }
+    const user = await prisma.user.findUnique({ where: { email: cleanEmail } }).catch(() => null);
 
     if (!user) {
       let regularRole = await prisma.role.findFirst({
@@ -122,15 +113,7 @@ router.post('/request-otp', async (req, res) => {
     }
 
     const cleanEmail = email.trim().toLowerCase();
-    let user = null;
-
-    try {
-      user = await prisma.user.findUnique({ where: { email: cleanEmail } });
-    } catch (dbErr) {
-      console.log('Database initialization on request-otp:', dbErr.message);
-      await autoMigrateDatabase().catch(() => {});
-      user = await prisma.user.findUnique({ where: { email: cleanEmail } }).catch(() => null);
-    }
+    let user = await prisma.user.findUnique({ where: { email: cleanEmail } }).catch(() => null);
 
     if (!user) {
       const defaultRole = await prisma.role.findFirst({
