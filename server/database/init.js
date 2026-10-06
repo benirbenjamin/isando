@@ -3,12 +3,8 @@ import path from 'path';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
-const isVercel = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
-
-// Set SQLite path to /tmp/dev.db if on Vercel read-only filesystem and no Postgres URL is provided
-if (isVercel && (!process.env.DATABASE_URL || process.env.DATABASE_URL.startsWith('file:'))) {
-  const tmpDbPath = '/tmp/dev.db';
-  process.env.DATABASE_URL = `file:${tmpDbPath}`;
+if (process.env.DATABASE_URL && process.env.DATABASE_URL.startsWith('postgres://')) {
+  process.env.DATABASE_URL = process.env.DATABASE_URL.replace('postgres://', 'postgresql://');
 }
 
 const prisma = new PrismaClient();
