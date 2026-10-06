@@ -37,7 +37,7 @@ export async function sendEmail({ to, subject, html, text }) {
     try {
       console.log(`✉️ Attempting to send email via Resend to ${to} (From: ${cleanFromEmail})...`);
       const resend = new Resend(resendApiKey);
-      const data = await resend.emails.send({
+      const result = await resend.emails.send({
         from: cleanFromEmail,
         to: Array.isArray(to) ? to : [to],
         subject,
@@ -45,13 +45,18 @@ export async function sendEmail({ to, subject, html, text }) {
         text,
       });
 
-      if (data && !data.error && data.id) {
-        console.log(`✅ Email sent successfully via Resend API to ${to} (ID: ${data.id})`);
-        return { success: true, provider: 'Resend', id: data.id };
+      console.log('Resend API response:', JSON.stringify(result));
+
+      const emailId = result?.data?.id || result?.id;
+      const emailError = result?.error;
+
+      if (emailId) {
+        console.log(`✅ Email sent successfully via Resend API to ${to} (ID: ${emailId})`);
+        return { success: true, provider: 'Resend', id: emailId };
       }
 
-      if (data?.error) {
-        const errMsg = data.error.message || JSON.stringify(data.error);
+      if (emailError) {
+        const errMsg = emailError.message || JSON.stringify(emailError);
         console.warn(`❌ Resend API returned error: ${errMsg}`);
         errors.push(`Resend error: ${errMsg}`);
       }
@@ -60,7 +65,7 @@ export async function sendEmail({ to, subject, html, text }) {
       errors.push(`Resend exception: ${err.message}`);
     }
   } else {
-    errors.push('RESEND_API_KEY is not configured in Vercel environment variables or database settings.');
+    errors.push('RESEND_API_KEY is not configured in Vercel environment variables.');
   }
 
   // Attempt 2: SMTP Fallback
