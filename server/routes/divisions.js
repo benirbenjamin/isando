@@ -28,16 +28,41 @@ router.get('/', async (req, res) => {
           { createdAt: 'asc' }
         ]
       });
-    } catch {
-      divisions = await prisma.businessDivision.findMany({
-        include: {
-          categories: true,
-          _count: { select: { products: true, services: true } }
-        },
-        orderBy: { name: 'asc' }
-      });
+    } catch (dbErr) {
+      // Column sortOrder might be missing on remote DB, add it immediately!
+      try {
+        await prisma.$executeRawUnsafe(`ALTER TABLE "BusinessDivision" ADD COLUMN IF NOT EXISTS "sortOrder" INTEGER NOT NULL DEFAULT 0;`);
+        divisions = await prisma.businessDivision.findMany({
+          include: {
+            categories: true,
+            _count: { select: { products: true, services: true } }
+          },
+          orderBy: [
+            { sortOrder: 'asc' },
+            { createdAt: 'asc' }
+          ]
+        });
+      } catch (retryErr) {
+        // Fallback to raw query without sortOrder
+        try {
+          const rawDivs = await prisma.$queryRawUnsafe(`
+            SELECT id, name, slug, description, image, tag, "createdAt"
+            FROM "BusinessDivision"
+            ORDER BY "createdAt" ASC
+          `);
+          const allCats = await prisma.category.findMany().catch(() => []);
+          divisions = rawDivs.map(d => ({
+            ...d,
+            sortOrder: 0,
+            categories: allCats.filter(c => c.businessDivisionId === d.id),
+            _count: { products: 0, services: 0 }
+          }));
+        } catch {
+          divisions = [];
+        }
+      }
     }
-    return res.json({ divisions });
+    return res.json({ divisions: divisions || [] });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -55,35 +80,46 @@ router.put('/reorder', authenticateToken, hasPermission('products.create'), asyn
       return res.status(400).json({ error: 'Valid array of orderedIds is required' });
     }
 
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "BusinessDivision" ADD COLUMN IF NOT EXISTS "sortOrder" INTEGER NOT NULL DEFAULT 0;`);
+    } catch {}
+
     for (let i = 0; i < ids.length; i++) {
       const id = ids[i];
       try {
-        await prisma.businessDivision.update({
-          where: { id },
-          data: { sortOrder: i }
-        });
-      } catch (e) {
-        console.warn(`Could not update sortOrder for division ${id}:`, e.message);
+        await prisma.$executeRawUnsafe(`UPDATE "BusinessDivision" SET "sortOrder" = $1 WHERE "id" = $2;`, i, id);
+      } catch {
+        try {
+          await prisma.businessDivision.update({
+            where: { id },
+            data: { sortOrder: i }
+          });
+        } catch (e) {
+          console.warn(`Could not update sortOrder for division ${id}:`, e.message);
+        }
       }
     }
 
-    const divisions = await prisma.businessDivision.findMany({
-      include: {
-        categories: true,
-        _count: { select: { products: true, services: true } }
-      },
-      orderBy: [
-        { sortOrder: 'asc' },
-        { createdAt: 'asc' }
-      ]
-    }).catch(async () => {
-      return await prisma.businessDivision.findMany({
+    let divisions;
+    try {
+      divisions = await prisma.businessDivision.findMany({
+        include: {
+          categories: true,
+          _count: { select: { products: true, services: true } }
+        },
+        orderBy: [
+          { sortOrder: 'asc' },
+          { createdAt: 'asc' }
+        ]
+      });
+    } catch {
+      divisions = await prisma.businessDivision.findMany({
         include: { categories: true },
         orderBy: { name: 'asc' }
-      });
-    });
+      }).catch(() => []);
+    }
 
-    return res.json({ success: true, divisions });
+    return res.json({ success: true, divisions: divisions || [] });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -99,7 +135,11 @@ router.post('/', authenticateToken, hasPermission('products.create'), async (req
 
     const slug = slugify(name);
     
-    // Count existing divisions to set sortOrder at the end
+    // Ensure column exists
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "BusinessDivision" ADD COLUMN IF NOT EXISTS "sortOrder" INTEGER NOT NULL DEFAULT 0;`);
+    } catch {}
+
     const count = await prisma.businessDivision.count().catch(() => 0);
 
     const division = await prisma.businessDivision.create({

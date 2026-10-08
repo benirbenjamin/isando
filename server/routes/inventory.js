@@ -25,10 +25,17 @@ router.get('/status', authenticateToken, hasPermission('inventory.view'), async 
     for (const p of products) {
       totalStockItems += p.stockQuantity;
 
+      let parsedImages = [];
+      try {
+        parsedImages = typeof p.images === 'string' ? JSON.parse(p.images || '[]') : (Array.isArray(p.images) ? p.images : []);
+      } catch {
+        parsedImages = p.images ? [p.images] : [];
+      }
+
       if (p.stockQuantity === 0) {
-        outOfStock.push({ ...p, images: JSON.parse(p.images || '[]') });
-      } else if (p.stockQuantity <= p.lowStockThreshold) {
-        lowStock.push({ ...p, images: JSON.parse(p.images || '[]') });
+        outOfStock.push({ ...p, images: parsedImages });
+      } else if (p.stockQuantity <= (p.lowStockThreshold || 5)) {
+        lowStock.push({ ...p, images: parsedImages });
       }
     }
 

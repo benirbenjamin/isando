@@ -264,8 +264,36 @@ export default function CategoriesPage() {
       </div>
 
       {/* Divisions List */}
-      <div className="space-y-4">
-        {divisions.map((div, index) => {
+      {divisions.length === 0 ? (
+        <div className="bg-white border border-brand-border rounded-2xl p-12 text-center space-y-4 shadow-sm">
+          <div className="w-16 h-16 rounded-full bg-brand-soft mx-auto flex items-center justify-center text-3xl">
+            🏷️
+          </div>
+          <div>
+            <h3 className="text-base font-black text-brand-dark">No Divisions Loaded</h3>
+            <p className="text-xs text-brand-muted mt-1 max-w-sm mx-auto">
+              No business divisions were found. You can create a new division now or retry loading.
+            </p>
+          </div>
+          <div className="flex justify-center gap-2 pt-2">
+            <button
+              onClick={loadDivisions}
+              className="bg-brand-soft border border-brand-border hover:bg-gray-100 text-brand-dark font-bold text-xs px-4 py-2 rounded-xl transition"
+            >
+              Refresh
+            </button>
+            <button
+              onClick={() => setShowDivModal(true)}
+              className="bg-brand-yellow hover:bg-brand-yellowDark text-brand-dark font-extrabold text-xs px-5 py-2 rounded-xl shadow inline-flex items-center gap-1.5 transition"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create Business Division</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {divisions.map((div, index) => {
           const isFirst = index === 0;
           const isLast = index === divisions.length - 1;
           const isDragging = draggedIndex === index;
@@ -413,7 +441,8 @@ export default function CategoriesPage() {
             </div>
           );
         })}
-      </div>
+        </div>
+      )}
 
       {/* Create Division Modal */}
       {showDivModal && (
