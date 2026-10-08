@@ -86,10 +86,13 @@ export default function ChatPage() {
       id: 'temp-' + Date.now(),
       text: textToSend,
       createdAt: new Date().toISOString(),
+      senderId: user?.id,
       sender: { id: user?.id, fullName: user?.fullName || 'Me' },
       attachments: [],
       seenByCount: 1,
       seenByTotal: 1,
+      seenSummary: '1/1',
+      seenUsers: [{ id: user?.id, name: user?.fullName || 'Me' }],
     };
     setMessages(prev => [...prev, tempMsg]);
 
@@ -200,7 +203,7 @@ export default function ChatPage() {
                     {/* READ / SEEN TRACKING DISCLOSURE */}
                     <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-400 font-semibold">
                       <Eye className="w-3 h-3 text-emerald-600" />
-                      <span>{msg.seenSummary} Seen ({msg.seenUsers.map(u => u.name).join(', ') || 'Delivered'})</span>
+                      <span>{msg.seenSummary || 'Delivered'} ({Array.isArray(msg.seenUsers) ? msg.seenUsers.map(u => u?.name || u?.fullName || 'User').join(', ') : 'Delivered'})</span>
                     </div>
                   </div>
                 );

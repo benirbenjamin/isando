@@ -2,7 +2,7 @@
 
 generator client {
   provider      = "prisma-client-js"
-  binaryTargets = ["native", "rhel-openssl-1.0.x", "rhel-openssl-3.0.x"]
+  binaryTargets = ["native", "windows", "rhel-openssl-1.0.x", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
@@ -96,6 +96,7 @@ model BusinessDivision {
   description String?
   image       String?
   tag         String?
+  sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
 
   categories Category[]

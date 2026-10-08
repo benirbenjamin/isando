@@ -181,6 +181,9 @@ const DEFAULT_CLOTHES_PRODUCTS = [
 ];
 
 export default function HomePage() {
+  const [divisions, setDivisions] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
+  const [allServices, setAllServices] = useState([]);
   const [categories, setCategories] = useState([]);
   const [featuredItems, setFeaturedItems] = useState(DEFAULT_FEATURED_SLIDES);
   const [photoVideoServices, setPhotoVideoServices] = useState([]);
@@ -204,6 +207,9 @@ export default function HomePage() {
         const prods = prodRes.products || [];
         const srvs = srvRes.services || [];
         const divs = divRes.divisions || [];
+        setDivisions(divs);
+        setAllProducts(prods);
+        setAllServices(srvs);
 
         // Extract all dynamic categories across divisions
         const dynamicCats = [];
@@ -655,217 +661,328 @@ export default function HomePage() {
       </section>
 
       {/* =========================================================================
-          ORDER 1: PHOTOGRAPHY & VIDEOGRAPHY (COMES FIRST AS REQUESTED)
+          DYNAMIC ORDER-AWARE BUSINESS DIVISION SECTIONS
           ========================================================================= */}
-      <section className="max-w-7xl mx-auto px-4">
-        <div className="bg-gradient-to-br from-amber-50/70 via-white to-amber-100/40 border border-brand-yellow/40 rounded-3xl p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <span className="bg-brand-red text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider inline-block mb-1">
-                #1 SIGNATURE SERVICE
-              </span>
-              <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
-                <Camera className="w-6 h-6 text-brand-red" />
-                <span>📸 Photography & Videography</span>
-              </h2>
-              <p className="text-xs text-brand-muted">
-                High-end wedding cinematography, portrait photography, 4K multi-cam coverage & drone videography
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Link to="/services?division=Wedding%20Services" className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
-                View All Media Services &rarr;
-              </Link>
-              <div className="flex gap-1">
-                <button onClick={() => scrollContainer('photovideo-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button onClick={() => scrollContainer('photovideo-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
+      {(divisions && divisions.length > 0 ? divisions : [
+        { id: 'def-car', name: 'Car rentals', description: 'Chauffeured Mercedes-Benz, V8 Land Cruisers, VIP Range Rovers, and bridal convoy coaches' },
+        { id: 'def-clothes', name: 'Clothes & Shoes', description: 'Men & women shoes, dresses, suits, traditional Rwandan attire & sneakers' },
+        { id: 'def-consult', name: 'Consultancy Services', description: 'Expert business strategy, corporate event planning, financial planning & executive workshops' },
+        { id: 'def-food', name: 'Food & Beverages', description: 'Fresh natural juices, crate soft drinks, wholesale rice & catering food supplies' },
+        { id: 'def-wedding', name: 'Wedding Services', description: 'Exquisite venue decoration, catering & buffet, sound & lighting, MCs, cakes & protocol' },
+      ]).map((div, index) => {
+        const nameLower = (div.name || '').toLowerCase();
 
-          <div id="photovideo-scroller" className="flex gap-4 overflow-x-auto pb-2 scrollbar-none snap-x">
-            {photoVideoServices.map((s) => (
-              <div key={s.id} className="min-w-[260px] sm:min-w-[320px] max-w-[320px] flex-shrink-0 snap-start">
-                <ServiceCard service={s} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+        // 1. Photography & Videography
+        if (nameLower.includes('photo') || nameLower.includes('video')) {
+          return (
+            <section key={div.id || 'photo'} className="max-w-7xl mx-auto px-4">
+              <div className="bg-gradient-to-br from-amber-50/70 via-white to-amber-100/40 border border-brand-yellow/40 rounded-3xl p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <span className="bg-brand-red text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider inline-block mb-1">
+                      #{index + 1} SIGNATURE SERVICE
+                    </span>
+                    <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
+                      <Camera className="w-6 h-6 text-brand-red" />
+                      <span>📸 {div.name}</span>
+                    </h2>
+                    <p className="text-xs text-brand-muted">
+                      {div.description || 'High-end wedding cinematography, portrait photography, 4K multi-cam coverage & drone videography'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Link to={`/services?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
+                      View All {div.name} &rarr;
+                    </Link>
+                    <div className="flex gap-1">
+                      <button onClick={() => scrollContainer('photovideo-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => scrollContainer('photovideo-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
 
-      {/* =========================================================================
-          ORDER 2: WEDDING SERVICES (THEN WEDDING SERVICES)
-          ========================================================================= */}
-      <section className="max-w-7xl mx-auto px-4">
-        <div className="border border-brand-border rounded-3xl p-6 bg-white shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <span className="bg-brand-yellow text-brand-dark text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider inline-block mb-1">
-                #2 FULL EVENT COVERAGE
-              </span>
-              <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
-                <HeartHandshake className="w-6 h-6 text-brand-red" />
-                <span>💍 Wedding Services</span>
-              </h2>
-              <p className="text-xs text-brand-muted">
-                Exquisite venue decoration, catering & buffet, sound & lighting, MCs, cakes & protocol
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Link to="/services?division=Wedding%20Services" className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
-                View Wedding Services &rarr;
-              </Link>
-              <div className="flex gap-1">
-                <button onClick={() => scrollContainer('wedding-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button onClick={() => scrollContainer('wedding-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+                <div id="photovideo-scroller" className="flex gap-4 overflow-x-auto pb-2 scrollbar-none snap-x">
+                  {photoVideoServices.map((s) => (
+                    <div key={s.id} className="min-w-[260px] sm:min-w-[320px] max-w-[320px] flex-shrink-0 snap-start">
+                      <ServiceCard service={s} />
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          </div>
+            </section>
+          );
+        }
 
-          <div id="wedding-scroller" className="flex gap-4 overflow-x-auto pb-2 scrollbar-none snap-x">
-            {weddingServices.map((s) => (
-              <div key={s.id} className="min-w-[260px] sm:min-w-[300px] max-w-[300px] flex-shrink-0 snap-start">
-                <ServiceCard service={s} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+        // 2. Wedding Services (General)
+        if (nameLower.includes('wedding')) {
+          return (
+            <section key={div.id || 'wedding'} className="max-w-7xl mx-auto px-4">
+              <div className="border border-brand-border rounded-3xl p-6 bg-white shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <span className="bg-brand-yellow text-brand-dark text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider inline-block mb-1">
+                      #{index + 1} FULL EVENT COVERAGE
+                    </span>
+                    <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
+                      <HeartHandshake className="w-6 h-6 text-brand-red" />
+                      <span>💍 {div.name}</span>
+                    </h2>
+                    <p className="text-xs text-brand-muted">
+                      {div.description || 'Exquisite venue decoration, catering & buffet, sound & lighting, MCs, cakes & protocol'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Link to={`/services?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
+                      View {div.name} &rarr;
+                    </Link>
+                    <div className="flex gap-1">
+                      <button onClick={() => scrollContainer('wedding-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => scrollContainer('wedding-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
 
-      {/* =========================================================================
-          ORDER 3: WEDDING CAR RENTALS (THEN WEDDING CAR RENTALS)
-          ========================================================================= */}
-      <section className="max-w-7xl mx-auto px-4">
-        <div className="bg-slate-50 border border-brand-border rounded-3xl p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <span className="bg-emerald-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider inline-block mb-1">
-                #3 LUXURY FLEET
-              </span>
-              <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
-                <Car className="w-6 h-6 text-brand-red" />
-                <span>🚗 Wedding Car Rentals</span>
-              </h2>
-              <p className="text-xs text-brand-muted">
-                Chauffeured Mercedes-Benz, V8 Land Cruisers, VIP Range Rovers, and bridal convoy coaches
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Link to="/services?category=Cars%20%26%20MC" className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
-                View Fleet &rarr;
-              </Link>
-              <div className="flex gap-1">
-                <button onClick={() => scrollContainer('cars-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button onClick={() => scrollContainer('cars-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+                <div id="wedding-scroller" className="flex gap-4 overflow-x-auto pb-2 scrollbar-none snap-x">
+                  {weddingServices.map((s) => (
+                    <div key={s.id} className="min-w-[260px] sm:min-w-[300px] max-w-[300px] flex-shrink-0 snap-start">
+                      <ServiceCard service={s} />
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          </div>
+            </section>
+          );
+        }
 
-          <div id="cars-scroller" className="flex gap-4 overflow-x-auto pb-2 scrollbar-none snap-x">
-            {carRentalServices.map((s) => (
-              <div key={s.id} className="min-w-[260px] sm:min-w-[320px] max-w-[320px] flex-shrink-0 snap-start">
-                <ServiceCard service={s} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+        // 3. Car rentals
+        if (nameLower.includes('car') || nameLower.includes('rental') || nameLower.includes('transport')) {
+          return (
+            <section key={div.id || 'car'} className="max-w-7xl mx-auto px-4">
+              <div className="bg-slate-50 border border-brand-border rounded-3xl p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <span className="bg-emerald-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider inline-block mb-1">
+                      #{index + 1} LUXURY FLEET
+                    </span>
+                    <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
+                      <Car className="w-6 h-6 text-brand-red" />
+                      <span>🚗 {div.name}</span>
+                    </h2>
+                    <p className="text-xs text-brand-muted">
+                      {div.description || 'Chauffeured Mercedes-Benz, V8 Land Cruisers, VIP Range Rovers, and bridal convoy coaches'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Link to={`/services?category=Cars%20%26%20MC`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
+                      View Fleet &rarr;
+                    </Link>
+                    <div className="flex gap-1">
+                      <button onClick={() => scrollContainer('cars-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => scrollContainer('cars-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
 
-      {/* =========================================================================
-          ORDER 4: CONSULTANCY SERVICES (THEN CONSULTANCY)
-          ========================================================================= */}
-      <section className="max-w-7xl mx-auto px-4">
-        <div className="border border-brand-border rounded-3xl p-6 bg-white shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <span className="bg-brand-dark text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider inline-block mb-1">
-                #4 PROFESSIONAL ADVISORY
-              </span>
-              <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
-                <Briefcase className="w-6 h-6 text-brand-yellow" />
-                <span>💼 Consultancy Services</span>
-              </h2>
-              <p className="text-xs text-brand-muted">
-                Expert business strategy, corporate event planning, financial planning & executive workshops
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Link to="/services?division=Consultancy%20Services" className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
-                View All Consultancy &rarr;
-              </Link>
-              <div className="flex gap-1">
-                <button onClick={() => scrollContainer('consultancy-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button onClick={() => scrollContainer('consultancy-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+                <div id="cars-scroller" className="flex gap-4 overflow-x-auto pb-2 scrollbar-none snap-x">
+                  {carRentalServices.map((s) => (
+                    <div key={s.id} className="min-w-[260px] sm:min-w-[320px] max-w-[320px] flex-shrink-0 snap-start">
+                      <ServiceCard service={s} />
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          </div>
+            </section>
+          );
+        }
 
-          <div id="consultancy-scroller" className="flex gap-4 overflow-x-auto pb-4 scrollbar-none snap-x">
-            {consultancyServices.map((s) => (
-              <div key={s.id} className="min-w-[260px] sm:min-w-[300px] max-w-[300px] flex-shrink-0 snap-start">
-                <ServiceCard service={s} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+        // 4. Consultancy Services
+        if (nameLower.includes('consult')) {
+          return (
+            <section key={div.id || 'consult'} className="max-w-7xl mx-auto px-4">
+              <div className="border border-brand-border rounded-3xl p-6 bg-white shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <span className="bg-brand-dark text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider inline-block mb-1">
+                      #{index + 1} PROFESSIONAL ADVISORY
+                    </span>
+                    <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
+                      <Briefcase className="w-6 h-6 text-brand-yellow" />
+                      <span>💼 {div.name}</span>
+                    </h2>
+                    <p className="text-xs text-brand-muted">
+                      {div.description || 'Expert business strategy, corporate event planning, financial planning & executive workshops'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Link to={`/services?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
+                      View All {div.name} &rarr;
+                    </Link>
+                    <div className="flex gap-1">
+                      <button onClick={() => scrollContainer('consultancy-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => scrollContainer('consultancy-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
 
-      {/* =========================================================================
-          ORDER 5: FOOD & BEVERAGES (ALWAYS DISPLAYED & DYNAMICALLY LOADED)
-          ========================================================================= */}
-      <section className="max-w-7xl mx-auto px-4">
-        <div className="border border-brand-border rounded-3xl p-6 bg-white shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <span className="bg-amber-500 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider inline-block mb-1">
-                #5 WHOLESALE & RETAIL
-              </span>
-              <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
-                <Utensils className="w-6 h-6 text-brand-yellow" />
-                <span>🍔 Food & Beverages</span>
-              </h2>
-              <p className="text-xs text-brand-muted">Fresh natural juices, crate soft drinks, wholesale rice & catering food supplies</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Link to="/products?division=Food%20%26%20Beverages" className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
-                View All Food &rarr;
-              </Link>
-              <div className="flex gap-1">
-                <button onClick={() => scrollContainer('food-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button onClick={() => scrollContainer('food-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+                <div id="consultancy-scroller" className="flex gap-4 overflow-x-auto pb-4 scrollbar-none snap-x">
+                  {consultancyServices.map((s) => (
+                    <div key={s.id} className="min-w-[260px] sm:min-w-[300px] max-w-[300px] flex-shrink-0 snap-start">
+                      <ServiceCard service={s} />
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          </div>
+            </section>
+          );
+        }
 
-          <div id="food-scroller" className="flex gap-4 overflow-x-auto pb-4 scrollbar-none snap-x">
-            {foodProducts.map((p) => (
-              <div key={p.id} className="min-w-[240px] sm:min-w-[280px] max-w-[280px] flex-shrink-0 snap-start">
-                <ProductCard product={p} />
+        // 5. Food & Beverages
+        if (nameLower.includes('food') || nameLower.includes('beverage') || nameLower.includes('drink')) {
+          return (
+            <section key={div.id || 'food'} className="max-w-7xl mx-auto px-4">
+              <div className="border border-brand-border rounded-3xl p-6 bg-white shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <span className="bg-amber-500 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider inline-block mb-1">
+                      #{index + 1} WHOLESALE & RETAIL
+                    </span>
+                    <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
+                      <Utensils className="w-6 h-6 text-brand-yellow" />
+                      <span>🍔 {div.name}</span>
+                    </h2>
+                    <p className="text-xs text-brand-muted">
+                      {div.description || 'Fresh natural juices, crate soft drinks, wholesale rice & catering food supplies'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Link to={`/products?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
+                      View All {div.name} &rarr;
+                    </Link>
+                    <div className="flex gap-1">
+                      <button onClick={() => scrollContainer('food-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => scrollContainer('food-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div id="food-scroller" className="flex gap-4 overflow-x-auto pb-4 scrollbar-none snap-x">
+                  {foodProducts.map((p) => (
+                    <div key={p.id} className="min-w-[240px] sm:min-w-[280px] max-w-[280px] flex-shrink-0 snap-start">
+                      <ProductCard product={p} />
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
+            </section>
+          );
+        }
+
+        // 6. Clothes & Shoes
+        if (nameLower.includes('cloth') || nameLower.includes('shoe') || nameLower.includes('fashion') || nameLower.includes('apparel')) {
+          return (
+            <section key={div.id || 'clothes'} className="max-w-7xl mx-auto px-4">
+              <div className="border border-brand-border rounded-3xl p-6 bg-white shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <span className="bg-purple-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider inline-block mb-1">
+                      #{index + 1} FASHION & FOOTWEAR
+                    </span>
+                    <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
+                      <Shirt className="w-6 h-6 text-brand-yellow" />
+                      <span>👗 {div.name}</span>
+                    </h2>
+                    <p className="text-xs text-brand-muted">
+                      {div.description || 'Men & women shoes, dresses, suits, traditional Rwandan attire & sneakers'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Link to={`/products?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
+                      View All {div.name} &rarr;
+                    </Link>
+                    <div className="flex gap-1">
+                      <button onClick={() => scrollContainer('clothes-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => scrollContainer('clothes-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div id="clothes-scroller" className="flex gap-4 overflow-x-auto pb-4 scrollbar-none snap-x">
+                  {clothesProducts.map((p) => (
+                    <div key={p.id} className="min-w-[240px] sm:min-w-[280px] max-w-[280px] flex-shrink-0 snap-start">
+                      <ProductCard product={p} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          );
+        }
+
+        // 7. Generic / Newly Created Custom Business Division
+        const customProds = allProducts.filter(p => p.businessDivisionId === div.id || (p.businessDivision?.name || '').toLowerCase() === nameLower);
+        const customSrvs = allServices.filter(s => s.businessDivisionId === div.id || (s.businessDivision?.name || '').toLowerCase() === nameLower);
+
+        if (customProds.length === 0 && customSrvs.length === 0) return null;
+
+        return (
+          <section key={div.id} className="max-w-7xl mx-auto px-4">
+            <div className="border border-brand-border rounded-3xl p-6 bg-white shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <span className="bg-brand-dark text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider inline-block mb-1">
+                    #{index + 1} DIVISION
+                  </span>
+                  <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
+                    <Sparkles className="w-6 h-6 text-brand-yellow" />
+                    <span>{div.name}</span>
+                  </h2>
+                  <p className="text-xs text-brand-muted">{div.description || 'Dynamic business division catalog'}</p>
+                </div>
+                <Link to={customProds.length > 0 ? `/products?division=${encodeURIComponent(div.name)}` : `/services?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
+                  Explore {div.name} &rarr;
+                </Link>
+              </div>
+
+              <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none snap-x">
+                {customProds.map((p) => (
+                  <div key={p.id} className="min-w-[240px] sm:min-w-[280px] max-w-[280px] flex-shrink-0 snap-start">
+                    <ProductCard product={p} />
+                  </div>
+                ))}
+                {customSrvs.map((s) => (
+                  <div key={s.id} className="min-w-[260px] sm:min-w-[300px] max-w-[300px] flex-shrink-0 snap-start">
+                    <ServiceCard service={s} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+      })}
 
       {/* Special Offers (% On Sale) */}
       {specialOffers.length > 0 && (
@@ -902,47 +1019,6 @@ export default function HomePage() {
           </div>
         </section>
       )}
-
-      {/* =========================================================================
-          ORDER 6: CLOTHES & SHOES (COMES LAST ON HOME PAGE AS REQUESTED)
-          ========================================================================= */}
-      <section className="max-w-7xl mx-auto px-4">
-        <div className="border border-brand-border rounded-3xl p-6 bg-white shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <span className="bg-purple-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider inline-block mb-1">
-                #6 FASHION & FOOTWEAR (LAST SECTION)
-              </span>
-              <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
-                <Shirt className="w-6 h-6 text-brand-yellow" />
-                <span>👗 Clothes & Shoes</span>
-              </h2>
-              <p className="text-xs text-brand-muted">Men & women shoes, dresses, suits, traditional Rwandan attire & sneakers</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Link to="/products?division=Clothes%20%26%20Shoes" className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
-                View All Fashion &rarr;
-              </Link>
-              <div className="flex gap-1">
-                <button onClick={() => scrollContainer('clothes-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button onClick={() => scrollContainer('clothes-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div id="clothes-scroller" className="flex gap-4 overflow-x-auto pb-4 scrollbar-none snap-x">
-            {clothesProducts.map((p) => (
-              <div key={p.id} className="min-w-[240px] sm:min-w-[280px] max-w-[280px] flex-shrink-0 snap-start">
-                <ProductCard product={p} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* =========================================================================
           WHATSAPP QUICK ORDER BANNER

@@ -5,6 +5,9 @@ import prisma from './prisma.js';
 
 async function ensureTablesExist() {
   if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('sqlite') && !process.env.DATABASE_URL.includes('.db')) {
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "BusinessDivision" ADD COLUMN IF NOT EXISTS "sortOrder" INTEGER NOT NULL DEFAULT 0;`);
+    } catch {}
     return; // PostgreSQL schema is handled safely by Prisma
   }
   const createTablesSQL = [
@@ -62,6 +65,7 @@ async function ensureTablesExist() {
       "description" TEXT,
       "image" TEXT,
       "tag" TEXT,
+      "sortOrder" INTEGER NOT NULL DEFAULT 0,
       "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     );`,
     `CREATE TABLE IF NOT EXISTS "Category" (
@@ -269,6 +273,13 @@ async function ensureTablesExist() {
       // DDL safe ignore
     }
   }
+
+  // Ensure sortOrder column exists on BusinessDivision table
+  try {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "BusinessDivision" ADD COLUMN "sortOrder" INTEGER NOT NULL DEFAULT 0;`);
+  } catch {
+    // DDL safe ignore if column already exists
+  }
 }
 
 export async function autoMigrateDatabase() {
@@ -304,7 +315,7 @@ export async function autoMigrateDatabase() {
     if (superAdminRole && regularRole) {
       await prisma.user.updateMany({
         where: {
-          email: { not: 'admin@romantictsolutions.com' },
+          email: { notIn: ['romantictsolutions@gmail.com', 'admin@romantictsolutions.com'] },
           roleId: superAdminRole.id,
         },
         data: {
@@ -467,8 +478,22 @@ export async function autoMigrateDatabase() {
 
     const passwordHash = await bcrypt.hash('admin123', 10);
     await prisma.user.upsert({
+      where: { email: 'romantictsolutions@gmail.com' },
+      update: { passwordHash, roleId: role.id, departmentId: dept.id, status: 'ACTIVE' },
+      create: {
+        email: 'romantictsolutions@gmail.com',
+        passwordHash,
+        fullName: 'Romantic Super Admin',
+        phone: '250786639945',
+        roleId: role.id,
+        departmentId: dept.id,
+        status: 'ACTIVE',
+      },
+    });
+
+    await prisma.user.upsert({
       where: { email: 'admin@romantictsolutions.com' },
-      update: { passwordHash, roleId: role.id, departmentId: dept.id },
+      update: { passwordHash, roleId: role.id, departmentId: dept.id, status: 'ACTIVE' },
       create: {
         email: 'admin@romantictsolutions.com',
         passwordHash,
@@ -478,7 +503,7 @@ export async function autoMigrateDatabase() {
         departmentId: dept.id,
         status: 'ACTIVE',
       },
-    });
+    }).catch(() => {});
 
     // 4. Products (Food & Beverages, Clothes & Shoes)
     const sampleProducts = [

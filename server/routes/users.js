@@ -213,14 +213,14 @@ router.delete('/:id', authenticateToken, hasPermission('users.edit'), async (req
 
     const targetUser = await prisma.user.findUnique({
       where: { id: targetUserId },
-      include: { role: true },
     });
 
     if (!targetUser) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    if (targetUser.email === 'admin@romantictsolutions.com') {
+    const protectedAdmins = ['romantictsolutions@gmail.com', 'admin@romantictsolutions.com'];
+    if (protectedAdmins.includes(targetUser.email.toLowerCase())) {
       return res.status(403).json({ error: 'The primary system Super Administrator cannot be deleted' });
     }
 

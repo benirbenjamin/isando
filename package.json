@@ -17,8 +17,8 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
-    "@prisma/client": "^5.10.0",
-    "prisma": "^5.10.0",
+    "@prisma/client": "^5.22.0",
+    "prisma": "^5.22.0",
     "@vercel/blob": "^0.22.0",
     "axios": "^1.6.8",
     "bcryptjs": "^2.4.3",

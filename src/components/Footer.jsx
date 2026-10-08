@@ -1,9 +1,35 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Phone, Mail, MapPin, MessageCircle } from 'lucide-react';
-import { getWhatsAppLink } from '../services/api';
+import { api, getWhatsAppLink } from '../services/api';
+
+const DEFAULT_FOOTER_DIVISIONS = [
+  { id: 'f-1', name: 'Car rentals' },
+  { id: 'f-2', name: 'Clothes & Shoes' },
+  { id: 'f-3', name: 'Consultancy Services' },
+  { id: 'f-4', name: 'Food & Beverages' },
+  { id: 'f-5', name: 'Wedding Services' },
+];
 
 export default function Footer() {
+  const [divisions, setDivisions] = useState(DEFAULT_FOOTER_DIVISIONS);
+
+  useEffect(() => {
+    let isMounted = true;
+    api.get('/divisions')
+      .then(res => {
+        if (isMounted && Array.isArray(res.divisions) && res.divisions.length > 0) {
+          setDivisions(res.divisions);
+        }
+      })
+      .catch(() => {});
+    return () => { isMounted = false; };
+  }, []);
+
+  const divisionsDescription = divisions.length > 0
+    ? divisions.map(d => d.name).join(', ')
+    : 'Food & Beverages, Fashion Apparel, Wedding Services and Business Consultancy';
+
   return (
     <footer className="bg-[#1C1F27] text-gray-300 pt-10 pb-6 border-t-4 border-brand-yellow text-sm">
       <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
@@ -19,7 +45,7 @@ export default function Footer() {
             }}
           />
           <p className="text-xs text-gray-400 leading-relaxed mb-4">
-            Romantic T Solutions Ltd brings Food & Beverages, Fashion Apparel, Wedding Services and Business Consultancy together under one trusted name in Rwanda.
+            Romantic T Solutions Ltd brings {divisionsDescription} together under one trusted name in Rwanda.
           </p>
           <a
             href={getWhatsAppLink('250786639945', 'Hello Romantic T Solutions, I need assistance.')}
@@ -32,14 +58,31 @@ export default function Footer() {
           </a>
         </div>
 
-        {/* Business Divisions */}
+        {/* Dynamic Business Divisions */}
         <div>
           <h4 className="text-white font-bold mb-3 border-b border-gray-700 pb-1">Our Divisions</h4>
           <ul className="space-y-2 text-xs">
-            <li><Link to="/products?division=Food%20%26%20Beverages" className="hover:text-brand-yellow">Food & Beverages</Link></li>
-            <li><Link to="/products?division=Clothes%20%26%20Shoes" className="hover:text-brand-yellow">Clothes & Shoes</Link></li>
-            <li><Link to="/services?division=Wedding%20Services" className="hover:text-brand-yellow">Wedding Services</Link></li>
-            <li><Link to="/services?division=Consultancy%20Services" className="hover:text-brand-yellow">Consultancy Services</Link></li>
+            {divisions.map((div) => {
+              const isServiceDiv = (
+                div.name.toLowerCase().includes('service') ||
+                div.name.toLowerCase().includes('rental') ||
+                div.name.toLowerCase().includes('consult') ||
+                div.name.toLowerCase().includes('photo') ||
+                div.name.toLowerCase().includes('wedding')
+              ) && !div.name.toLowerCase().includes('cloth') && !div.name.toLowerCase().includes('food');
+
+              const targetUrl = isServiceDiv
+                ? `/services?division=${encodeURIComponent(div.name)}`
+                : `/products?division=${encodeURIComponent(div.name)}`;
+
+              return (
+                <li key={div.id || div.name}>
+                  <Link to={targetUrl} className="hover:text-brand-yellow transition">
+                    {div.name}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </div>
 

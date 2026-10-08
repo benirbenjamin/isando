@@ -20,21 +20,25 @@ export default function MobileBottomNav({ onOpenMobileMenu }) {
     location.pathname.startsWith('/products-management') ||
     location.pathname.startsWith('/services-management') ||
     location.pathname.startsWith('/workers') ||
+    location.pathname.startsWith('/categories') ||
     location.pathname.startsWith('/settings');
 
+  // Internal Management / Dashboard bottom navigation
   if (isDashboardArea && isAuthenticated) {
     return (
       <nav className="fixed bottom-0 inset-x-0 z-40 bg-[#1C1F27]/95 backdrop-blur-md border-t border-gray-800 text-gray-300 md:hidden shadow-2xl">
         <div className="grid grid-cols-5 h-16 items-center">
+          {/* Home button in bottom nav: ALWAYS redirects to public homepage */}
           <NavLink
-            to="/dashboard"
+            to="/"
+            end
             className={({ isActive }) =>
               `flex flex-col items-center justify-center h-full transition ${
                 isActive ? 'text-brand-yellow font-bold' : 'text-gray-400 hover:text-white'
               }`
             }
           >
-            <LayoutDashboard className="w-5 h-5 mb-0.5" />
+            <Home className="w-5 h-5 mb-0.5" />
             <span className="text-[10px]">Home</span>
           </NavLink>
 
@@ -63,15 +67,15 @@ export default function MobileBottomNav({ onOpenMobileMenu }) {
           </NavLink>
 
           <NavLink
-            to="/messages"
+            to="/dashboard"
             className={({ isActive }) =>
               `flex flex-col items-center justify-center h-full transition ${
                 isActive ? 'text-brand-yellow font-bold' : 'text-gray-400 hover:text-white'
               }`
             }
           >
-            <MessageSquare className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px]">Chat</span>
+            <LayoutDashboard className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px]">Dashboard</span>
           </NavLink>
 
           <button
@@ -91,8 +95,10 @@ export default function MobileBottomNav({ onOpenMobileMenu }) {
   return (
     <nav className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-brand-border text-brand-dark md:hidden shadow-2xl">
       <div className="grid grid-cols-5 h-16 items-center">
+        {/* 1. Home -> Navigates to Homepage */}
         <NavLink
           to="/"
+          end
           className={({ isActive }) =>
             `flex flex-col items-center justify-center h-full transition ${
               isActive ? 'text-brand-red font-black' : 'text-gray-500 hover:text-brand-dark'
@@ -103,6 +109,7 @@ export default function MobileBottomNav({ onOpenMobileMenu }) {
           <span className="text-[10px]">Home</span>
         </NavLink>
 
+        {/* 2. Products */}
         <NavLink
           to="/products"
           className={({ isActive }) =>
@@ -115,6 +122,7 @@ export default function MobileBottomNav({ onOpenMobileMenu }) {
           <span className="text-[10px]">Products</span>
         </NavLink>
 
+        {/* 3. Services */}
         <NavLink
           to="/services"
           className={({ isActive }) =>
@@ -127,6 +135,7 @@ export default function MobileBottomNav({ onOpenMobileMenu }) {
           <span className="text-[10px]">Services</span>
         </NavLink>
 
+        {/* 4. Contact */}
         <NavLink
           to="/contact"
           className={({ isActive }) =>
@@ -139,16 +148,19 @@ export default function MobileBottomNav({ onOpenMobileMenu }) {
           <span className="text-[10px]">Contact</span>
         </NavLink>
 
+        {/* 5. Profile/Account on the side -> Redirects directly to Dashboard */}
         <NavLink
           to={isAuthenticated ? '/dashboard' : '/login'}
           className={({ isActive }) =>
             `flex flex-col items-center justify-center h-full transition ${
-              isActive ? 'text-brand-red font-black' : 'text-gray-500 hover:text-brand-dark'
+              isActive || location.pathname.startsWith('/dashboard')
+                ? 'text-brand-red font-black' 
+                : 'text-gray-500 hover:text-brand-dark'
             }`
           }
         >
           <User className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px]">{isAuthenticated ? 'Portal' : 'Login'}</span>
+          <span className="text-[10px]">Account</span>
         </NavLink>
       </div>
     </nav>

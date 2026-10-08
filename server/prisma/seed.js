@@ -175,6 +175,27 @@ async function main() {
   // 6. Super Admin Account
   const passwordHash = await bcrypt.hash('admin123', 10);
   const adminUser = await prisma.user.upsert({
+    where: { email: 'romantictsolutions@gmail.com' },
+    update: {
+      passwordHash,
+      fullName: 'Romantic Super Admin',
+      phone: '250786639945',
+      roleId: roles['Super Administrator'].id,
+      departmentId: departments['Administration'].id,
+      status: 'ACTIVE',
+    },
+    create: {
+      email: 'romantictsolutions@gmail.com',
+      passwordHash,
+      fullName: 'Romantic Super Admin',
+      phone: '250786639945',
+      roleId: roles['Super Administrator'].id,
+      departmentId: departments['Administration'].id,
+      status: 'ACTIVE',
+    },
+  });
+
+  await prisma.user.upsert({
     where: { email: 'admin@romantictsolutions.com' },
     update: {
       passwordHash,
@@ -193,7 +214,7 @@ async function main() {
       departmentId: departments['Administration'].id,
       status: 'ACTIVE',
     },
-  });
+  }).catch(() => {});
 
   // Seed sample workers
   const sampleWorkers = [
