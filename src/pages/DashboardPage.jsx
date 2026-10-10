@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Package, ShoppingCart, Calendar, AlertTriangle, TrendingUp, 
   Users, CheckCircle2, ArrowRight, MessageSquare, Megaphone, Plus, Clock, MapPin, UserCheck
@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 
 export default function DashboardPage() {
   const { user, hasPermission } = useAuth();
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -224,7 +225,11 @@ export default function DashboardPage() {
               return (
                 <div
                   key={evt.id}
-                  className="bg-brand-soft border border-brand-border hover:border-brand-yellow rounded-2xl p-4 shadow-sm transition space-y-3 flex flex-col justify-between"
+                  onClick={(e) => {
+                    if (e.target.closest('a') || e.target.closest('button')) return;
+                    navigate(`/events/${evt.id}`);
+                  }}
+                  className="bg-brand-soft border border-brand-border hover:border-brand-yellow hover:shadow-md hover:-translate-y-0.5 rounded-2xl p-4 shadow-sm transition space-y-3 flex flex-col justify-between cursor-pointer group"
                 >
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between gap-2">
@@ -299,7 +304,14 @@ export default function DashboardPage() {
           <div className="space-y-3">
             {events.length > 0 ? (
               events.slice(0, 5).map(evt => (
-                <div key={evt.id} className="p-3.5 bg-brand-soft hover:bg-amber-50/50 border border-brand-border rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition">
+                <div 
+                  key={evt.id}
+                  onClick={(e) => {
+                    if (e.target.closest('a') || e.target.closest('button')) return;
+                    navigate(`/events/${evt.id}`);
+                  }}
+                  className="p-3.5 bg-brand-soft hover:bg-amber-50/70 hover:border-brand-yellow hover:shadow-xs border border-brand-border rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition cursor-pointer"
+                >
                   <div>
                     <div className="flex items-center gap-2">
                       <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${evt.status === 'LIVE' ? 'bg-red-500 text-white animate-pulse' : 'bg-brand-yellow text-brand-dark'}`}>

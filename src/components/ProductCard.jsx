@@ -1,9 +1,10 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ShoppingBag, MessageCircle } from 'lucide-react';
 import { formatCurrency, calcDiscountPct, getWhatsAppLink, getImageUrl, getImageBackupUrl } from '../services/api';
 
 export default function ProductCard({ product }) {
+  const navigate = useNavigate();
   const images = Array.isArray(product.images) 
     ? product.images 
     : (typeof product.images === 'string' ? JSON.parse(product.images || '[]') : []);
@@ -17,8 +18,16 @@ export default function ProductCard({ product }) {
 
   const waMsg = `Hello Romantic T Solutions, I am interested in ${product.name}. Is it available?`;
 
+  const handleCardClick = (e) => {
+    if (e.target.closest('a') || e.target.closest('button')) return;
+    navigate(`/products/${product.id}`);
+  };
+
   return (
-    <div className="group bg-white border border-brand-border rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col relative">
+    <div 
+      onClick={handleCardClick}
+      className="group bg-white border border-brand-border rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col relative cursor-pointer"
+    >
       {/* Badges */}
       <div className="absolute top-2.5 left-2.5 z-10 flex flex-col gap-1.5 items-start">
         {discount > 0 && (

@@ -10,13 +10,21 @@ export default function HeaderDashboard({ setMobileOpen }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [activeReminder, setActiveReminder] = useState(null);
 
   useEffect(() => {
     async function loadNotifications() {
       try {
         const res = await api.get('/notifications');
+        const notifs = res.notifications || [];
         setUnreadCount(res.unreadCount || 0);
-        setNotifications(res.notifications || []);
+        setNotifications(notifs);
+
+        // Check for urgent upcoming event reminder (starting in 10 min)
+        const urgentEventReminder = notifs.find(n => !n.isRead && (n.type === 'EVENT_REMINDER' || n.title?.includes('10 Min')));
+        if (urgentEventReminder) {
+          setActiveReminder(urgentEventReminder);
+        }
       } catch (err) {
         console.error(err);
       }
@@ -64,8 +72,33 @@ export default function HeaderDashboard({ setMobileOpen }) {
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-white border-b border-brand-border px-4 py-3 shadow-sm">
-      <div className="flex items-center justify-between gap-4">
+    <header className="sticky top-0 z-30 bg-white border-b border-brand-border shadow-sm">
+      {/* ⏰ In-App 10-Minute Pre-Event Urgency Alert Banner */}
+      {activeReminder && (
+        <div className="bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 text-white px-4 py-2 text-xs font-bold flex items-center justify-between shadow-md">
+          <div className="flex items-center gap-2 truncate">
+            <span className="text-sm animate-bounce">⏰</span>
+            <span className="truncate">{activeReminder.title} &bull; {activeReminder.message}</span>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+            <button
+              onClick={() => handleNotificationClick(activeReminder)}
+              className="px-2.5 py-1 bg-white text-brand-dark rounded-lg font-black hover:bg-brand-yellow transition text-[11px] shadow-sm"
+            >
+              Open Command Center &rarr;
+            </button>
+            <button
+              onClick={() => setActiveReminder(null)}
+              className="text-white/80 hover:text-white font-bold px-1.5 text-sm"
+              title="Dismiss"
+            >
+              &times;
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="px-4 py-3 flex items-center justify-between gap-4">
         {/* Mobile Hamburger Button */}
         <div className="flex items-center gap-3">
           <button

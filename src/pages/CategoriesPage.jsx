@@ -210,6 +210,50 @@ export default function CategoriesPage() {
     }
   };
 
+  // Category Edit & Remove state
+  const [showEditCatModal, setShowEditCatModal] = useState(false);
+  const [editingCat, setEditingCat] = useState(null);
+  const [editCatName, setEditCatName] = useState('');
+  const [editCatType, setEditCatType] = useState('PRODUCT');
+  const [editCatDivId, setEditCatDivId] = useState('');
+
+  const openEditCategory = (cat, divisionId) => {
+    setEditingCat(cat);
+    setEditCatName(cat.name);
+    setEditCatType(cat.type || 'PRODUCT');
+    setEditCatDivId(cat.businessDivisionId || divisionId);
+    setShowEditCatModal(true);
+  };
+
+  const handleUpdateCategory = async (e) => {
+    e.preventDefault();
+    if (!editingCat) return;
+    try {
+      await api.put(`/categories/${editingCat.id}`, {
+        name: editCatName,
+        type: editCatType,
+        businessDivisionId: editCatDivId,
+      });
+      setShowEditCatModal(false);
+      setEditingCat(null);
+      showNotification('Category updated successfully!');
+      loadDivisions();
+    } catch (err) {
+      alert(err.message || 'Failed to update category');
+    }
+  };
+
+  const handleDeleteCategory = async (cat) => {
+    if (!window.confirm(`Are you sure you want to remove the category "${cat.name}"?`)) return;
+    try {
+      await api.delete(`/categories/${cat.id}`);
+      showNotification(`Category "${cat.name}" removed successfully!`);
+      loadDivisions();
+    } catch (err) {
+      alert(err.message || 'Failed to remove category');
+    }
+  };
+
   if (loading) {
     return (
       <div className="text-center py-16 text-xs font-bold text-gray-400 flex items-center justify-center gap-2">
@@ -428,12 +472,12 @@ export default function CategoriesPage() {
                     </button>
                   )}
 
-                  {/* Delete Division Button (if empty) */}
-                  {canEdit && (!div._count?.products && !div._count?.services && (!div.categories || div.categories.length === 0)) && (
+                  {/* Delete Division Button */}
+                  {canEdit && (
                     <button
                       onClick={() => handleDeleteDivision(div)}
                       className="text-red-500 hover:text-white hover:bg-red-500 p-1.5 rounded-xl border border-red-200 transition"
-                      title="Delete Empty Division"
+                      title="Delete Division"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -449,10 +493,31 @@ export default function CategoriesPage() {
                 <div className="flex flex-wrap gap-2">
                   {div.categories && div.categories.length > 0 ? (
                     div.categories.map(cat => (
-                      <span key={cat.id} className="bg-gray-50 border border-gray-200 px-3.5 py-1.5 rounded-xl text-xs font-bold text-brand-dark flex items-center gap-1.5 shadow-sm">
-                        <span className={`w-2 h-2 rounded-full ${cat.type === 'SERVICE' ? 'bg-brand-yellow' : 'bg-brand-red'}`} />
+                      <span key={cat.id} className="group bg-white hover:bg-amber-50/50 border border-gray-200 px-3.5 py-1.5 rounded-xl text-xs font-bold text-brand-dark flex items-center gap-2 shadow-xs transition">
+                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${cat.type === 'SERVICE' ? 'bg-brand-yellow' : 'bg-brand-red'}`} />
                         <span>{cat.name}</span>
                         <span className="text-[9px] text-gray-400 font-mono">({cat.type})</span>
+
+                        {canEdit && (
+                          <div className="flex items-center gap-1 border-l border-gray-200 pl-1.5 ml-0.5">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); openEditCategory(cat, div.id); }}
+                              className="p-1 text-gray-400 hover:text-brand-dark hover:bg-gray-100 rounded transition"
+                              title="Edit Category"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat); }}
+                              className="p-1 text-gray-400 hover:text-brand-red hover:bg-red-50 rounded transition"
+                              title="Remove Category"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
                       </span>
                     ))
                   ) : (
@@ -590,6 +655,77 @@ export default function CategoriesPage() {
               <div className="flex gap-2">
                 <button type="button" onClick={() => setShowCatModal(false)} className="flex-1 py-2.5 bg-gray-100 rounded-xl font-bold">Cancel</button>
                 <button type="submit" className="flex-1 py-2.5 bg-brand-yellow text-brand-dark font-black rounded-xl shadow">Add Category</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Category Modal */}
+      {showEditCatModal && editingCat && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl animate-pop">
+            <div className="flex items-center justify-between border-b pb-2">
+              <h3 className="text-base font-black text-brand-dark flex items-center gap-1.5">
+                <Edit2 className="w-4 h-4 text-brand-yellow" />
+                <span>Edit Category</span>
+              </h3>
+            </div>
+
+            <form onSubmit={handleUpdateCategory} className="space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-brand-dark block mb-1">Category Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editCatName}
+                  onChange={(e) => setEditCatName(e.target.value)}
+                  className="w-full p-2.5 bg-brand-soft border rounded-xl font-bold text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-yellow"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-brand-dark block mb-1">Category Type</label>
+                <select
+                  value={editCatType}
+                  onChange={(e) => setEditCatType(e.target.value)}
+                  className="w-full p-2.5 bg-brand-soft border rounded-xl font-bold text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-yellow"
+                >
+                  <option value="PRODUCT">PRODUCT (Physical goods)</option>
+                  <option value="SERVICE">SERVICE (Professional services)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-brand-dark block mb-1">Assigned Division</label>
+                <select
+                  value={editCatDivId}
+                  onChange={(e) => setEditCatDivId(e.target.value)}
+                  className="w-full p-2.5 bg-brand-soft border rounded-xl font-bold text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-yellow"
+                >
+                  {divisions.map(d => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    setShowEditCatModal(false);
+                    setEditingCat(null);
+                  }} 
+                  className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="flex-1 py-2.5 bg-brand-yellow hover:bg-brand-yellowDark text-brand-dark font-black rounded-xl shadow transition"
+                >
+                  Save Changes
+                </button>
               </div>
             </form>
           </div>

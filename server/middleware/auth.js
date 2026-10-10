@@ -36,8 +36,13 @@ export async function authenticateToken(req, res, next) {
 
     const permissionCodes = user.role?.permissions.map(rp => rp.permission.code) || [];
 
-    const isSuper = user.email?.toLowerCase() === 'romantictsolutions@gmail.com' || user.role?.name === 'Super Administrator';
-    const isAdmin = isSuper || user.role?.name === 'Administrator';
+    const cleanUserEmail = (user.email || '').trim().toLowerCase();
+    const SUPER_ADMIN_EMAILS = ['romantictsolutions@gmail.com', 'benirabok@gmail.com'];
+    const isSuper = SUPER_ADMIN_EMAILS.includes(cleanUserEmail) 
+      || user.role?.name === 'Super Administrator'
+      || user.role?.name?.toLowerCase().includes('super')
+      || user.role?.isSystem;
+    const isAdmin = isSuper || user.role?.name === 'Administrator' || user.role?.name?.toLowerCase().includes('admin');
 
     req.user = {
       id: user.id,
@@ -47,7 +52,7 @@ export async function authenticateToken(req, res, next) {
       roleName: isSuper && user.role?.name !== 'Super Administrator' ? 'Super Administrator' : (user.role?.name || 'User'),
       departmentId: user.departmentId,
       departmentName: user.department?.name,
-      permissions: permissionCodes,
+      permissions: isSuper || isAdmin ? ['*', ...permissionCodes] : permissionCodes,
       isSuperAdmin: isSuper,
       isAdmin: isAdmin,
     };
@@ -63,7 +68,15 @@ export function hasPermission(permissionCode) {
     if (!req.user) {
       return res.status(401).json({ error: 'Authentication required' });
     }
-    if (req.user.isSuperAdmin || req.user.isAdmin || req.user.permissions.includes(permissionCode)) {
+    if (
+      req.user.isSuperAdmin || 
+      req.user.isAdmin || 
+      (Array.isArray(req.user.permissions) && (
+        req.user.permissions.includes(permissionCode) || 
+        req.user.permissions.includes('*') ||
+        req.user.permissions.includes(permissionCode.split('.')[0] + '.*')
+      ))
+    ) {
       return next();
     }
     return res.status(403).json({

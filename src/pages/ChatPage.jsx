@@ -41,6 +41,15 @@ export default function ChatPage() {
     isAtBottomRef.current = distanceFromBottom < 80;
   };
 
+  const scrollToBottom = (smooth = true) => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto'
+      });
+    }
+  };
+
   async function loadConversations(autoSelectFirst = false) {
     try {
       const res = await api.get('/messages/conversations');
@@ -77,7 +86,7 @@ export default function ChatPage() {
       // Only auto-scroll down if user just sent a message OR was already at the bottom
       if (isManualSend || (countChanged && isAtBottomRef.current)) {
         setTimeout(() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+          scrollToBottom(true);
         }, 60);
       }
     } catch (err) {
@@ -130,7 +139,7 @@ export default function ChatPage() {
     };
     setMessages(prev => [...prev, tempMsg]);
     setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      scrollToBottom(true);
     }, 40);
 
     try {
@@ -214,13 +223,15 @@ export default function ChatPage() {
   if (loading) return <div className="text-center py-12 text-xs font-bold text-gray-400">Loading chat platform...</div>;
 
   return (
-    <div className="bg-white border border-brand-border rounded-3xl overflow-hidden shadow-lg grid grid-cols-1 md:grid-cols-3 h-[82vh]">
-      
-      {/* ============================================================== */}
-      {/* LEFT: Conversations & Contacts List (Hidden on mobile if chat open) */}
-      {/* ============================================================== */}
-      <div className={`border-r border-brand-border flex-col bg-brand-soft h-full ${activeConvId ? 'hidden md:flex' : 'flex'}`}>
-        {/* Header */}
+    <>
+      <div className="bg-white border border-brand-border rounded-2xl md:rounded-3xl overflow-hidden shadow-lg flex flex-col h-[calc(100dvh-5.5rem)] md:h-[calc(100dvh-6rem)]">
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-3 min-h-0 h-full overflow-hidden">
+        
+        {/* ============================================================== */}
+        {/* LEFT: Conversations & Contacts List (Hidden on mobile if chat open) */}
+        {/* ============================================================== */}
+        <div className={`border-r border-brand-border flex flex-col bg-brand-soft h-full min-h-0 overflow-hidden ${activeConvId ? 'hidden md:flex' : 'flex'}`}>
+          {/* Header */}
         <div className="p-4 border-b border-brand-border flex justify-between items-center bg-white flex-shrink-0">
           <div>
             <h2 className="font-extrabold text-base text-brand-dark flex items-center gap-1.5">
@@ -301,7 +312,7 @@ export default function ChatPage() {
       {/* ============================================================== */}
       {/* RIGHT: Active Chat Thread (Full view on mobile when open) */}
       {/* ============================================================== */}
-      <div className={`md:col-span-2 flex-col h-full bg-white ${activeConvId ? 'flex' : 'hidden md:flex'}`}>
+      <div className={`md:col-span-2 flex flex-col h-full min-h-0 overflow-hidden bg-white ${activeConvId ? 'flex' : 'hidden md:flex'}`}>
         {activeConvId ? (
           <>
             {/* Header */}
@@ -465,6 +476,7 @@ export default function ChatPage() {
           </div>
         )}
       </div>
+    </div>
 
       {/* ============================================================== */}
       {/* MODAL 1: Choose Who To Chat With (1-to-1 or Multi-Recipient) */}
@@ -662,6 +674,6 @@ export default function ChatPage() {
         </div>
       )}
 
-    </div>
+    </>
   );
 }

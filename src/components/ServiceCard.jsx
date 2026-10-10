@@ -1,9 +1,10 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { MapPin, MessageCircle, ArrowRight } from 'lucide-react';
 import { formatCurrency, getWhatsAppLink, getImageUrl, getImageBackupUrl } from '../services/api';
 
 export default function ServiceCard({ service }) {
+  const navigate = useNavigate();
   const images = Array.isArray(service.images) 
     ? service.images 
     : (typeof service.images === 'string' ? JSON.parse(service.images || '[]') : []);
@@ -13,8 +14,16 @@ export default function ServiceCard({ service }) {
 
   const waMsg = `Hello Romantic T Solutions, I am interested in your ${service.name} service. I would like to know more about availability and pricing.`;
 
+  const handleCardClick = (e) => {
+    if (e.target.closest('a') || e.target.closest('button')) return;
+    navigate(`/services/${service.id}`);
+  };
+
   return (
-    <div className="group bg-white border border-brand-border rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col">
+    <div 
+      onClick={handleCardClick}
+      className="group bg-white border border-brand-border rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col cursor-pointer"
+    >
       <div className="relative aspect-video overflow-hidden bg-brand-soft">
         <img
           src={mainImage}

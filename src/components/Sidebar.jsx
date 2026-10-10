@@ -113,7 +113,15 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
               <NavLink
                 key={item.path}
                 to={item.path}
-                onClick={() => setMobileOpen(false)}
+                onClick={(e) => {
+                  setMobileOpen(false);
+                  if (window.location.pathname === item.path) {
+                    e.preventDefault();
+                    window.location.reload();
+                  } else {
+                    window.location.href = item.path;
+                  }
+                }}
                 className={({ isActive }) => `
                   flex items-center justify-between px-3.5 py-2.5 rounded-xl font-bold text-xs transition group
                   ${isActive ? 'bg-brand-yellow text-brand-dark shadow-md' : 'hover:bg-gray-800 text-gray-300'}

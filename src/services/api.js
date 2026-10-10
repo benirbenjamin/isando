@@ -61,7 +61,7 @@ function xhrRequest(method, endpoint, data = null, headers = {}) {
     xhr.open(method, url, true);
     xhr.timeout = 25000;
 
-    const token = localStorage.getItem('romantic_token');
+    const token = localStorage.getItem('romantic_token') || localStorage.getItem('token') || localStorage.getItem('auth_token');
     if (token) {
       xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     }

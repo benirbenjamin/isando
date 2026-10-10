@@ -47,6 +47,7 @@ app.use('/api/users', usersRoutes);
 app.use('/api/roles', rolesRoutes);
 app.use('/api/departments', departmentsRoutes);
 app.use('/api/divisions', divisionsRoutes);
+app.use('/api/categories', divisionsRoutes);
 app.use('/api/products', productsRoutes);
 app.use('/api/services', servicesRoutes);
 app.use('/api/inventory', inventoryRoutes);

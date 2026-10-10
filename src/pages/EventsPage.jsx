@@ -316,36 +316,108 @@ export default function EventsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="font-bold text-brand-dark block mb-1">Date *</label>
-                  <input
-                    type="date"
-                    required
-                    value={eventForm.date}
-                    onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })}
-                    className="w-full p-2 bg-brand-soft border border-brand-border rounded-xl font-bold"
-                  />
+              <div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="font-bold text-brand-dark block mb-1">Date *</label>
+                    <input
+                      type="date"
+                      required
+                      value={eventForm.date}
+                      onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })}
+                      className="w-full p-2.5 bg-brand-soft border border-brand-border rounded-xl font-bold text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-brand-dark block mb-1">Start Time (Dynamic) *</label>
+                    <input
+                      type="time"
+                      required
+                      value={eventForm.startTime}
+                      onChange={(e) => {
+                        const newStart = e.target.value;
+                        let newEnd = eventForm.endTime;
+                        if (newStart) {
+                          const [sh, sm] = newStart.split(':').map(Number);
+                          const eh = (sh + 4) % 24;
+                          newEnd = `${String(eh).padStart(2, '0')}:${String(sm || 0).padStart(2, '0')}`;
+                        }
+                        setEventForm({ ...eventForm, startTime: newStart, endTime: newEnd });
+                      }}
+                      className="w-full p-2.5 bg-brand-soft border border-brand-border rounded-xl font-bold text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-brand-dark block mb-1">End Time (Dynamic) *</label>
+                    <input
+                      type="time"
+                      required
+                      value={eventForm.endTime}
+                      onChange={(e) => setEventForm({ ...eventForm, endTime: e.target.value })}
+                      className="w-full p-2.5 bg-brand-soft border border-brand-border rounded-xl font-bold text-xs"
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="font-bold text-brand-dark block mb-1">Start Time</label>
-                  <input
-                    type="text"
-                    value={eventForm.startTime}
-                    onChange={(e) => setEventForm({ ...eventForm, startTime: e.target.value })}
-                    className="w-full p-2 bg-brand-soft border border-brand-border rounded-xl"
-                  />
-                </div>
+                {/* Dynamic Quick Time Presets & 10-min notification badge */}
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-1.5 bg-amber-50/70 border border-amber-200/60 rounded-xl p-2 text-[11px]">
+                  <div className="flex items-center gap-1 text-amber-900 font-bold">
+                    <span>⏰</span>
+                    <span>Team notified 10 min before start</span>
+                  </div>
 
-                <div>
-                  <label className="font-bold text-brand-dark block mb-1">End Time</label>
-                  <input
-                    type="text"
-                    value={eventForm.endTime}
-                    onChange={(e) => setEventForm({ ...eventForm, endTime: e.target.value })}
-                    className="w-full p-2 bg-brand-soft border border-brand-border rounded-xl"
-                  />
+                  <div className="flex items-center gap-1">
+                    <span className="text-gray-400 font-semibold mr-1">Presets:</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const now = new Date();
+                        const hh = String(now.getHours()).padStart(2, '0');
+                        const mm = String(now.getMinutes()).padStart(2, '0');
+                        const endH = String((now.getHours() + 4) % 24).padStart(2, '0');
+                        setEventForm(prev => ({ ...prev, startTime: `${hh}:${mm}`, endTime: `${endH}:${mm}` }));
+                      }}
+                      className="px-2 py-0.5 bg-white border border-gray-200 hover:bg-brand-yellow rounded-lg font-bold transition text-[10px]"
+                    >
+                      Now
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date();
+                        d.setHours(d.getHours() + 1, 0, 0, 0);
+                        const hh = String(d.getHours()).padStart(2, '0');
+                        const endH = String((d.getHours() + 4) % 24).padStart(2, '0');
+                        setEventForm(prev => ({ ...prev, startTime: `${hh}:00`, endTime: `${endH}:00` }));
+                      }}
+                      className="px-2 py-0.5 bg-white border border-gray-200 hover:bg-brand-yellow rounded-lg font-bold transition text-[10px]"
+                    >
+                      +1 Hr
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEventForm(prev => ({ ...prev, startTime: '09:00', endTime: '17:00' }))}
+                      className="px-2 py-0.5 bg-white border border-gray-200 hover:bg-brand-yellow rounded-lg font-bold transition text-[10px]"
+                    >
+                      09:00 AM
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEventForm(prev => ({ ...prev, startTime: '14:00', endTime: '22:00' }))}
+                      className="px-2 py-0.5 bg-white border border-gray-200 hover:bg-brand-yellow rounded-lg font-bold transition text-[10px]"
+                    >
+                      02:00 PM
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEventForm(prev => ({ ...prev, startTime: '18:00', endTime: '23:30' }))}
+                      className="px-2 py-0.5 bg-white border border-gray-200 hover:bg-brand-yellow rounded-lg font-bold transition text-[10px]"
+                    >
+                      06:00 PM
+                    </button>
+                  </div>
                 </div>
               </div>
 

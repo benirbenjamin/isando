@@ -133,7 +133,11 @@ router.post('/', authenticateToken, hasPermission('products.create'), async (req
     const { name, description, image, tag } = req.body;
     if (!name) return res.status(400).json({ error: 'Division name is required' });
 
-    const slug = slugify(name);
+    let slug = slugify(name.trim());
+    const slugCollision = await prisma.businessDivision.findFirst({ where: { slug } }).catch(() => null);
+    if (slugCollision) {
+      slug = `${slug}-${Date.now().toString().slice(-4)}`;
+    }
     
     // Ensure column exists
     try {
@@ -175,7 +179,16 @@ router.put('/:id', authenticateToken, hasPermission('products.create'), async (r
     const updateData = {};
     if (name && name.trim()) {
       updateData.name = name.trim();
-      updateData.slug = slugify(name.trim());
+      let targetSlug = slugify(name.trim());
+      if (targetSlug !== existing.slug) {
+        const slugExists = await prisma.businessDivision.findFirst({
+          where: { slug: targetSlug, id: { not: id } }
+        }).catch(() => null);
+        if (slugExists) {
+          targetSlug = `${targetSlug}-${Date.now().toString().slice(-4)}`;
+        }
+        updateData.slug = targetSlug;
+      }
     }
     if (description !== undefined) updateData.description = description;
     if (image !== undefined) updateData.image = image;
@@ -212,10 +225,21 @@ router.delete('/:id', authenticateToken, hasPermission('products.create'), async
     if (!existing) {
       return res.status(404).json({ error: 'Division not found' });
     }
-    if ((existing._count?.products || 0) > 0 || (existing._count?.services || 0) > 0) {
-      return res.status(400).json({
-        error: 'Cannot delete division with active products or services. Please reassign or delete them first.'
-      });
+
+    // Safely delete linked products, variants, services, and categories
+    try {
+      const prods = await prisma.product.findMany({ where: { businessDivisionId: id }, select: { id: true } });
+      const prodIds = prods.map(p => p.id);
+      if (prodIds.length > 0) {
+        await prisma.inventoryTransaction.deleteMany({ where: { productId: { in: prodIds } } }).catch(() => {});
+        await prisma.saleItem.deleteMany({ where: { productId: { in: prodIds } } }).catch(() => {});
+        await prisma.productVariant.deleteMany({ where: { productId: { in: prodIds } } }).catch(() => {});
+        await prisma.product.deleteMany({ where: { id: { in: prodIds } } }).catch(() => {});
+      }
+      await prisma.service.deleteMany({ where: { businessDivisionId: id } }).catch(() => {});
+      await prisma.category.deleteMany({ where: { businessDivisionId: id } }).catch(() => {});
+    } catch (cleanupErr) {
+      console.warn('Cascade cleanup notice on division delete:', cleanupErr.message);
     }
 
     await prisma.businessDivision.delete({ where: { id } });
@@ -235,7 +259,14 @@ router.post('/:id/categories', authenticateToken, hasPermission('products.create
 
     if (!name) return res.status(400).json({ error: 'Category name is required' });
 
-    const slug = slugify(name);
+    let slug = slugify(name.trim());
+    const existingCat = await prisma.category.findFirst({
+      where: { slug, businessDivisionId }
+    }).catch(() => null);
+    if (existingCat) {
+      slug = `${slug}-${Date.now().toString().slice(-4)}`;
+    }
+
     const category = await prisma.category.create({
       data: {
         name: name.trim(),
@@ -250,5 +281,102 @@ router.post('/:id/categories', authenticateToken, hasPermission('products.create
     return res.status(500).json({ error: err.message });
   }
 });
+
+/**
+ * Admin: Update/Edit Category
+ * Supports PUT /categories/:categoryId and PUT /:divisionId/categories/:categoryId
+ */
+const handleUpdateCategory = async (req, res) => {
+  try {
+    const categoryId = req.params.categoryId || req.params.id;
+    const { name, type, businessDivisionId } = req.body;
+
+    const existing = await prisma.category.findUnique({ where: { id: categoryId } });
+    if (!existing) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+
+    const updateData = {};
+    if (name && name.trim()) {
+      updateData.name = name.trim();
+      let targetSlug = slugify(name.trim());
+      const targetDivId = businessDivisionId || existing.businessDivisionId;
+      if (targetSlug !== existing.slug || targetDivId !== existing.businessDivisionId) {
+        const slugCollision = await prisma.category.findFirst({
+          where: { slug: targetSlug, businessDivisionId: targetDivId, id: { not: categoryId } }
+        }).catch(() => null);
+        if (slugCollision) {
+          targetSlug = `${targetSlug}-${Date.now().toString().slice(-4)}`;
+        }
+        updateData.slug = targetSlug;
+      }
+    }
+    if (type) updateData.type = type;
+    if (businessDivisionId) updateData.businessDivisionId = businessDivisionId;
+
+    const updated = await prisma.category.update({
+      where: { id: categoryId },
+      data: updateData
+    });
+
+    return res.json(updated);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+router.put('/categories/:categoryId', authenticateToken, hasPermission('products.create'), handleUpdateCategory);
+router.put('/:divisionId/categories/:categoryId', authenticateToken, hasPermission('products.create'), handleUpdateCategory);
+
+/**
+ * Admin: Delete Category
+ * Supports DELETE /categories/:categoryId and DELETE /:divisionId/categories/:categoryId
+ */
+const handleDeleteCategory = async (req, res) => {
+  try {
+    const categoryId = req.params.categoryId || req.params.id;
+    const existing = await prisma.category.findUnique({ where: { id: categoryId } });
+    if (!existing) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+
+    // Safely reassign linked products & services to another category or create 'General' fallback
+    let fallbackCat = await prisma.category.findFirst({
+      where: { businessDivisionId: existing.businessDivisionId, id: { not: categoryId } }
+    }).catch(() => null);
+
+    if (!fallbackCat) {
+      fallbackCat = await prisma.category.create({
+        data: {
+          name: 'General',
+          slug: 'general-' + Date.now().toString().slice(-4),
+          type: existing.type,
+          businessDivisionId: existing.businessDivisionId
+        }
+      }).catch(() => null);
+    }
+
+    if (fallbackCat) {
+      await prisma.product.updateMany({
+        where: { categoryId },
+        data: { categoryId: fallbackCat.id }
+      }).catch(() => {});
+
+      await prisma.service.updateMany({
+        where: { categoryId },
+        data: { categoryId: fallbackCat.id }
+      }).catch(() => {});
+    }
+
+    await prisma.category.delete({ where: { id: categoryId } });
+
+    return res.json({ success: true, message: `Category '${existing.name}' deleted successfully` });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+router.delete('/categories/:categoryId', authenticateToken, hasPermission('products.create'), handleDeleteCategory);
+router.delete('/:divisionId/categories/:categoryId', authenticateToken, hasPermission('products.create'), handleDeleteCategory);
 
 export default router;

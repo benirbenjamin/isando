@@ -54,13 +54,16 @@ export function AuthProvider({ children }) {
   const isSuperAdmin = Boolean(
     user?.isSuperAdmin ||
     user?.role === 'Super Administrator' ||
-    user?.email?.toLowerCase() === 'romantictsolutions@gmail.com'
+    (typeof user?.role === 'string' && user.role.toLowerCase().includes('super')) ||
+    user?.email?.toLowerCase() === 'romantictsolutions@gmail.com' ||
+    user?.email?.toLowerCase() === 'benirabok@gmail.com'
   );
 
   const isAdmin = Boolean(
     user?.isAdmin ||
     isSuperAdmin ||
-    user?.role === 'Administrator'
+    user?.role === 'Administrator' ||
+    (typeof user?.role === 'string' && user.role.toLowerCase().includes('admin'))
   );
 
   const hasPermission = (permissionCode) => {

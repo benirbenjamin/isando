@@ -315,24 +315,16 @@ export async function autoMigrateDatabase() {
     await prisma.otpCode.deleteMany({ where: { email: 'admin@romantictsolutions.com' } }).catch(() => {});
     await prisma.user.deleteMany({ where: { email: 'admin@romantictsolutions.com' } }).catch(() => {});
 
-    // Guarantee romantictsolutions@gmail.com is ALWAYS Super Administrator
+    // Guarantee romantictsolutions@gmail.com and benirabok@gmail.com are ALWAYS Super Administrator
     if (superAdminRole) {
       await prisma.user.updateMany({
-        where: { email: 'romantictsolutions@gmail.com' },
+        where: { 
+          OR: [
+            { email: { in: ['romantictsolutions@gmail.com', 'benirabok@gmail.com'] } },
+            { fullName: { contains: 'benirabok', mode: 'insensitive' } }
+          ]
+        },
         data: { roleId: superAdminRole.id, status: 'ACTIVE' },
-      }).catch(() => {});
-    }
-
-    // Fix: Reassign any non-primary user that was assigned Super Admin by fallback during self-registration
-    if (superAdminRole && regularRole) {
-      await prisma.user.updateMany({
-        where: {
-          email: { notIn: ['romantictsolutions@gmail.com'] },
-          roleId: superAdminRole.id,
-        },
-        data: {
-          roleId: regularRole.id,
-        },
       }).catch(() => {});
     }
 

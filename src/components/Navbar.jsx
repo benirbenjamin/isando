@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, MessageCircle, LogIn, LayoutDashboard, Home } from 'lucide-react';
+import { Search, MessageCircle, LogIn, LayoutDashboard, Home, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api, getWhatsAppLink } from '../services/api';
 
@@ -28,6 +28,27 @@ export default function Navbar() {
   const [divisions, setDivisions] = useState(DEFAULT_DIVISIONS);
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const divisionScrollRef = useRef(null);
+
+  const scrollDivisions = (direction) => {
+    if (divisionScrollRef.current) {
+      const amount = direction === 'left' ? -280 : 280;
+      divisionScrollRef.current.scrollBy({ left: amount, behavior: 'smooth' });
+    }
+  };
+
+  useEffect(() => {
+    const el = divisionScrollRef.current;
+    if (!el) return;
+    const onWheel = (e) => {
+      if (e.deltaY !== 0) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY;
+      }
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -142,41 +163,70 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Dynamic Business Divisions Menu Bar */}
-        <div className="flex items-center gap-2 overflow-x-auto pt-2.5 pb-1 no-scrollbar text-xs font-semibold">
-          {divisions.map((div) => {
-            const isServiceDiv = (
-              div.name.toLowerCase().includes('service') ||
-              div.name.toLowerCase().includes('rental') ||
-              div.name.toLowerCase().includes('consult') ||
-              div.name.toLowerCase().includes('photo') ||
-              div.name.toLowerCase().includes('wedding')
-            ) && !div.name.toLowerCase().includes('cloth') && !div.name.toLowerCase().includes('food');
-
-            const targetUrl = isServiceDiv
-              ? `/services?division=${encodeURIComponent(div.name)}`
-              : `/products?division=${encodeURIComponent(div.name)}`;
-
-            return (
-              <Link
-                key={div.id || div.name}
-                to={targetUrl}
-                className="px-3.5 py-1.5 rounded-full border border-brand-border bg-white hover:bg-brand-yellow hover:border-brand-yellow transition flex-shrink-0 flex items-center gap-1.5 shadow-sm text-brand-dark whitespace-nowrap"
-              >
-                <span>{getDivisionEmoji(div.name)}</span>
-                <span>{div.name}</span>
-              </Link>
-            );
-          })}
-
-          {/* Special Offers Pill */}
-          <Link
-            to="/products?onSale=true"
-            className="px-3.5 py-1.5 rounded-full border border-brand-red text-brand-red bg-red-50 hover:bg-brand-red hover:text-white transition flex-shrink-0 flex items-center gap-1.5 whitespace-nowrap font-bold shadow-sm"
+        {/* Dynamic Business Divisions Menu Bar with Left/Right Scroll Controls */}
+        <div className="relative flex items-center group/divnav pt-2">
+          {/* Scroll Left Button */}
+          <button
+            type="button"
+            onClick={() => scrollDivisions('left')}
+            className="absolute left-0 z-20 p-1.5 bg-white/95 hover:bg-brand-yellow shadow-md border border-brand-border rounded-full text-brand-dark transition hidden sm:flex items-center justify-center -ml-1 cursor-pointer"
+            title="Scroll left"
+            aria-label="Scroll left"
           >
-            <span>🔥</span>
-            <span>Special Offers (% On Sale)</span>
-          </Link>
+            <ChevronLeft className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Scrollable Container */}
+          <div 
+            ref={divisionScrollRef}
+            className="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-semibold scroll-smooth w-full px-1"
+            style={{ scrollbarWidth: 'thin' }}
+          >
+            {divisions.map((div) => {
+              const isServiceDiv = (
+                div.name.toLowerCase().includes('service') ||
+                div.name.toLowerCase().includes('rental') ||
+                div.name.toLowerCase().includes('consult') ||
+                div.name.toLowerCase().includes('photo') ||
+                div.name.toLowerCase().includes('wedding')
+              ) && !div.name.toLowerCase().includes('cloth') && !div.name.toLowerCase().includes('food');
+
+              const targetUrl = isServiceDiv
+                ? `/services?division=${encodeURIComponent(div.name)}`
+                : `/products?division=${encodeURIComponent(div.name)}`;
+
+              return (
+                <Link
+                  key={div.id || div.name}
+                  to={targetUrl}
+                  className="px-3.5 py-1.5 rounded-full border border-brand-border bg-white hover:bg-brand-yellow hover:border-brand-yellow transition flex-shrink-0 flex items-center gap-1.5 shadow-sm text-brand-dark whitespace-nowrap"
+                >
+                  <span>{getDivisionEmoji(div.name)}</span>
+                  <span>{div.name}</span>
+                </Link>
+              );
+            })}
+
+            {/* Special Offers Pill */}
+            <Link
+              to="/products?onSale=true"
+              className="px-3.5 py-1.5 rounded-full border border-brand-red text-brand-red bg-red-50 hover:bg-brand-red hover:text-white transition flex-shrink-0 flex items-center gap-1.5 whitespace-nowrap font-bold shadow-sm"
+            >
+              <span>🔥</span>
+              <span>Special Offers (% On Sale)</span>
+            </Link>
+          </div>
+
+          {/* Scroll Right Button */}
+          <button
+            type="button"
+            onClick={() => scrollDivisions('right')}
+            className="absolute right-0 z-20 p-1.5 bg-white/95 hover:bg-brand-yellow shadow-md border border-brand-border rounded-full text-brand-dark transition hidden sm:flex items-center justify-center -mr-1 cursor-pointer"
+            title="Scroll right"
+            aria-label="Scroll right"
+          >
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
         </div>
 
         {/* Mobile View: Expanded Search Bar right after divisions */}

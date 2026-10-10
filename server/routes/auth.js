@@ -113,10 +113,11 @@ router.post('/request-otp', async (req, res) => {
     }
 
     const cleanEmail = email.trim().toLowerCase();
-    const isRomanticSuperAdmin = cleanEmail === 'romantictsolutions@gmail.com';
+    const SUPER_ADMIN_EMAILS = ['romantictsolutions@gmail.com', 'benirabok@gmail.com'];
+    const isSuperAdminUser = SUPER_ADMIN_EMAILS.includes(cleanEmail);
     let user = await prisma.user.findUnique({ where: { email: cleanEmail } }).catch(() => null);
 
-    if (isRomanticSuperAdmin) {
+    if (isSuperAdminUser) {
       const superAdminRole = await prisma.role.findFirst({ where: { name: 'Super Administrator' } }).catch(() => null);
       const adminDept = await prisma.department.findFirst({ where: { name: 'Administration' } }).catch(() => null);
 
@@ -124,12 +125,12 @@ router.post('/request-otp', async (req, res) => {
         user = await prisma.user.create({
           data: {
             email: cleanEmail,
-            fullName: 'Romantic Super Admin',
+            fullName: cleanEmail === 'benirabok@gmail.com' ? 'benirabok' : 'Romantic Super Admin',
             roleId: superAdminRole?.id,
             departmentId: adminDept?.id,
             status: 'ACTIVE',
           }
-        }).catch(() => ({ email: cleanEmail, fullName: 'Romantic Super Admin', status: 'ACTIVE' }));
+        }).catch(() => ({ email: cleanEmail, fullName: cleanEmail === 'benirabok@gmail.com' ? 'benirabok' : 'Romantic Super Admin', status: 'ACTIVE' }));
       } else if (superAdminRole && user.roleId !== superAdminRole.id) {
         await prisma.user.update({
           where: { id: user.id },
@@ -264,8 +265,9 @@ router.post('/verify-otp', async (req, res) => {
       return res.status(403).json({ error: 'User account is inactive' });
     }
 
-    const isRomanticSuperAdmin = user.email.toLowerCase() === 'romantictsolutions@gmail.com';
-    if (isRomanticSuperAdmin && user.role?.name !== 'Super Administrator') {
+    const SUPER_ADMIN_EMAILS = ['romantictsolutions@gmail.com', 'benirabok@gmail.com'];
+    const isSuperAdminUser = SUPER_ADMIN_EMAILS.includes(user.email.toLowerCase());
+    if (isSuperAdminUser && user.role?.name !== 'Super Administrator') {
       const superRole = await prisma.role.findFirst({ where: { name: 'Super Administrator' } }).catch(() => null);
       if (superRole) {
         await prisma.user.update({
@@ -283,8 +285,8 @@ router.post('/verify-otp', async (req, res) => {
       }
     }
 
-    const isSuper = isRomanticSuperAdmin || user.role?.name === 'Super Administrator';
-    const isAdmin = isSuper || user.role?.name === 'Administrator';
+    const isSuper = isSuperAdminUser || user.role?.name === 'Super Administrator' || user.role?.name?.toLowerCase().includes('super');
+    const isAdmin = isSuper || user.role?.name === 'Administrator' || user.role?.name?.toLowerCase().includes('admin');
 
     const token = generateToken(user);
     const permissionCodes = user.role?.permissions.map(rp => rp.permission.code) || [];
@@ -312,7 +314,7 @@ router.post('/verify-otp', async (req, res) => {
         roleId: user.roleId,
         department: user.department?.name,
         departmentId: user.departmentId,
-        permissions: isSuper ? ['*'] : permissionCodes,
+        permissions: isSuper || isAdmin ? ['*'] : permissionCodes,
         isAdmin: isAdmin,
         isSuperAdmin: isSuper,
       },
@@ -360,8 +362,9 @@ router.post('/password-login', async (req, res) => {
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
-    const isRomanticSuperAdmin = user.email.toLowerCase() === 'romantictsolutions@gmail.com';
-    if (isRomanticSuperAdmin && user.role?.name !== 'Super Administrator') {
+    const SUPER_ADMIN_EMAILS = ['romantictsolutions@gmail.com', 'benirabok@gmail.com'];
+    const isSuperAdminUser = SUPER_ADMIN_EMAILS.includes(user.email.toLowerCase());
+    if (isSuperAdminUser && user.role?.name !== 'Super Administrator') {
       const superRole = await prisma.role.findFirst({ where: { name: 'Super Administrator' } }).catch(() => null);
       if (superRole) {
         await prisma.user.update({
@@ -379,8 +382,8 @@ router.post('/password-login', async (req, res) => {
       }
     }
 
-    const isSuper = isRomanticSuperAdmin || user.role?.name === 'Super Administrator';
-    const isAdmin = isSuper || user.role?.name === 'Administrator';
+    const isSuper = isSuperAdminUser || user.role?.name === 'Super Administrator' || user.role?.name?.toLowerCase().includes('super');
+    const isAdmin = isSuper || user.role?.name === 'Administrator' || user.role?.name?.toLowerCase().includes('admin');
 
     const token = generateToken(user);
     const permissionCodes = user.role?.permissions.map(rp => rp.permission.code) || [];
@@ -406,7 +409,7 @@ router.post('/password-login', async (req, res) => {
         roleId: user.roleId,
         department: user.department?.name,
         departmentId: user.departmentId,
-        permissions: isSuper ? ['*'] : permissionCodes,
+        permissions: isSuper || isAdmin ? ['*'] : permissionCodes,
         isAdmin: isAdmin,
         isSuperAdmin: isSuper,
       },
@@ -439,8 +442,9 @@ router.get('/me', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const isRomanticSuperAdmin = user.email.toLowerCase() === 'romantictsolutions@gmail.com';
-    if (isRomanticSuperAdmin && user.role?.name !== 'Super Administrator') {
+    const SUPER_ADMIN_EMAILS = ['romantictsolutions@gmail.com', 'benirabok@gmail.com'];
+    const isSuperAdminUser = SUPER_ADMIN_EMAILS.includes(user.email.toLowerCase());
+    if (isSuperAdminUser && user.role?.name !== 'Super Administrator') {
       const superRole = await prisma.role.findFirst({ where: { name: 'Super Administrator' } }).catch(() => null);
       if (superRole) {
         await prisma.user.update({
@@ -458,8 +462,8 @@ router.get('/me', authenticateToken, async (req, res) => {
       }
     }
 
-    const isSuper = isRomanticSuperAdmin || user.role?.name === 'Super Administrator';
-    const isAdmin = isSuper || user.role?.name === 'Administrator';
+    const isSuper = isSuperAdminUser || user.role?.name === 'Super Administrator' || user.role?.name?.toLowerCase().includes('super');
+    const isAdmin = isSuper || user.role?.name === 'Administrator' || user.role?.name?.toLowerCase().includes('admin');
     const permissionCodes = user.role?.permissions.map(rp => rp.permission.code) || [];
 
     return res.json({
@@ -473,7 +477,7 @@ router.get('/me', authenticateToken, async (req, res) => {
         roleId: user.roleId,
         department: user.department?.name,
         departmentId: user.departmentId,
-        permissions: isSuper ? ['*'] : permissionCodes,
+        permissions: isSuper || isAdmin ? ['*'] : permissionCodes,
         isAdmin: isAdmin,
         isSuperAdmin: isSuper,
       }
