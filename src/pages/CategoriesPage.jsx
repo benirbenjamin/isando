@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { showToast } from '../utils/toast';
 
 export default function CategoriesPage() {
   const { hasPermission } = useAuth();
@@ -52,6 +53,7 @@ export default function CategoriesPage() {
 
   const showNotification = (msg) => {
     setSaveSuccessMessage(msg);
+    showToast(msg, 'success');
     setTimeout(() => {
       setSaveSuccessMessage('');
     }, 3000);
@@ -66,7 +68,7 @@ export default function CategoriesPage() {
       await api.put('/divisions/reorder', { orderedIds });
       showNotification('Division order saved successfully!');
     } catch (err) {
-      alert('Failed to save order: ' + (err.message || 'Unknown error'));
+      showToast('Failed to save order: ' + (err.message || 'Unknown error'), 'error');
       loadDivisions();
     } finally {
       setSavingOrder(false);
@@ -154,7 +156,7 @@ export default function CategoriesPage() {
       showNotification('Division created successfully!');
       loadDivisions();
     } catch (err) {
-      alert(err.message);
+      showToast(err.message || 'Failed to create division', 'error');
     }
   };
 
@@ -179,7 +181,7 @@ export default function CategoriesPage() {
       showNotification('Division name updated successfully!');
       loadDivisions();
     } catch (err) {
-      alert(err.message);
+      showToast(err.message || 'Failed to update division', 'error');
     }
   };
 
@@ -191,7 +193,7 @@ export default function CategoriesPage() {
       showNotification('Division deleted successfully!');
       loadDivisions();
     } catch (err) {
-      alert(err.message);
+      showToast(err.message || 'Failed to delete division', 'error');
     }
   };
 
@@ -206,7 +208,7 @@ export default function CategoriesPage() {
       showNotification('Category added successfully!');
       loadDivisions();
     } catch (err) {
-      alert(err.message);
+      showToast(err.message || 'Failed to add category', 'error');
     }
   };
 
@@ -239,7 +241,7 @@ export default function CategoriesPage() {
       showNotification('Category updated successfully!');
       loadDivisions();
     } catch (err) {
-      alert(err.message || 'Failed to update category');
+      showToast(err.message || 'Failed to update category', 'error');
     }
   };
 
@@ -250,7 +252,7 @@ export default function CategoriesPage() {
       showNotification(`Category "${cat.name}" removed successfully!`);
       loadDivisions();
     } catch (err) {
-      alert(err.message || 'Failed to remove category');
+      showToast(err.message || 'Failed to remove category', 'error');
     }
   };
 
