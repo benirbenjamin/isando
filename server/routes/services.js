@@ -28,6 +28,7 @@ router.get('/', async (req, res) => {
       const foundDiv = await prisma.businessDivision.findFirst({
         where: {
           OR: [
+            { id: division },
             { slug: division },
             { name: division },
             { name: { contains: division } }
@@ -43,6 +44,7 @@ router.get('/', async (req, res) => {
       const foundCat = await prisma.category.findFirst({
         where: {
           OR: [
+            { id: category },
             { slug: category },
             { name: category },
             { name: { contains: category } }
