@@ -4,7 +4,8 @@ import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 export default function TasksPage() {
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
+  const canCreate = hasPermission('tasks.create');
   const [tasks, setTasks] = useState([]);
   const [workers, setWorkers] = useState([]);
   const [events, setEvents] = useState([]);
@@ -92,13 +93,15 @@ export default function TasksPage() {
             {myTasksOnly ? 'My Tasks' : 'All Team Tasks'}
           </button>
 
-          <button
-            onClick={() => setShowModal(true)}
-            className="bg-brand-red hover:bg-brand-redDark text-white font-extrabold text-xs px-5 py-2.5 rounded-2xl shadow flex items-center gap-2 transition"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Create Task</span>
-          </button>
+          {canCreate && (
+            <button
+              onClick={() => setShowModal(true)}
+              className="bg-brand-red hover:bg-brand-redDark text-white font-extrabold text-xs px-5 py-2.5 rounded-2xl shadow flex items-center gap-2 transition"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create Task</span>
+            </button>
+          )}
         </div>
       </div>
 

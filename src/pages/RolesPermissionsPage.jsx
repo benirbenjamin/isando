@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Plus, Check } from 'lucide-react';
+import { Shield, Plus, Check, ShieldAlert } from 'lucide-react';
 import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 export default function RolesPermissionsPage() {
+  const { hasPermission, isAdmin } = useAuth();
+  const canManage = isAdmin || hasPermission('users.create') || hasPermission('users.edit');
+
   const [roles, setRoles] = useState([]);
   const [allPermissions, setAllPermissions] = useState([]);
   const [selectedRole, setSelectedRole] = useState(null);
@@ -73,6 +77,16 @@ export default function RolesPermissionsPage() {
       alert(err.message);
     }
   };
+
+  if (!canManage) {
+    return (
+      <div className="text-center py-16 bg-white border border-brand-border rounded-3xl p-8 max-w-md mx-auto space-y-3 shadow-sm">
+        <ShieldAlert className="w-12 h-12 text-brand-red mx-auto" />
+        <h2 className="text-lg font-black text-brand-dark">Access Restricted</h2>
+        <p className="text-xs text-gray-500">Only Super Administrators and Administrators can manage system roles & permissions.</p>
+      </div>
+    );
+  }
 
   if (loading) return <div className="text-center py-12 text-xs font-bold text-gray-400">Loading roles & permissions...</div>;
 

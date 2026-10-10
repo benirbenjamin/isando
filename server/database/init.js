@@ -311,11 +311,23 @@ export async function autoMigrateDatabase() {
     const superAdminRole = await prisma.role.findUnique({ where: { name: 'Super Administrator' } });
     const regularRole = await prisma.role.findUnique({ where: { name: 'Regular User' } });
 
+    // Completely purge invalid admin@romantictsolutions.com email
+    await prisma.otpCode.deleteMany({ where: { email: 'admin@romantictsolutions.com' } }).catch(() => {});
+    await prisma.user.deleteMany({ where: { email: 'admin@romantictsolutions.com' } }).catch(() => {});
+
+    // Guarantee romantictsolutions@gmail.com is ALWAYS Super Administrator
+    if (superAdminRole) {
+      await prisma.user.updateMany({
+        where: { email: 'romantictsolutions@gmail.com' },
+        data: { roleId: superAdminRole.id, status: 'ACTIVE' },
+      }).catch(() => {});
+    }
+
     // Fix: Reassign any non-primary user that was assigned Super Admin by fallback during self-registration
     if (superAdminRole && regularRole) {
       await prisma.user.updateMany({
         where: {
-          email: { notIn: ['romantictsolutions@gmail.com', 'admin@romantictsolutions.com'] },
+          email: { notIn: ['romantictsolutions@gmail.com'] },
           roleId: superAdminRole.id,
         },
         data: {
@@ -490,20 +502,6 @@ export async function autoMigrateDatabase() {
         status: 'ACTIVE',
       },
     });
-
-    await prisma.user.upsert({
-      where: { email: 'admin@romantictsolutions.com' },
-      update: { passwordHash, roleId: role.id, departmentId: dept.id, status: 'ACTIVE' },
-      create: {
-        email: 'admin@romantictsolutions.com',
-        passwordHash,
-        fullName: 'Romantic Super Admin',
-        phone: '250786639945',
-        roleId: role.id,
-        departmentId: dept.id,
-        status: 'ACTIVE',
-      },
-    }).catch(() => {});
 
     // 4. Products (Food & Beverages, Clothes & Shoes)
     const sampleProducts = [

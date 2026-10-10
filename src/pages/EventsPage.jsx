@@ -3,8 +3,13 @@ import { Link } from 'react-router-dom';
 import { Calendar, Plus, Users, ArrowRight, UserPlus, Phone, MapPin, Sparkles, MessageSquare } from 'lucide-react';
 import { api } from '../services/api';
 import SearchableSelect from '../components/SearchableSelect';
+import { useAuth } from '../context/AuthContext';
 
 export default function EventsPage() {
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission('events.create');
+  const canManage = hasPermission('events.manage');
+
   const [events, setEvents] = useState([]);
   const [workers, setWorkers] = useState([]);
   const [showEventModal, setShowEventModal] = useState(false);
@@ -142,16 +147,18 @@ export default function EventsPage() {
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            setError('');
-            setShowEventModal(true);
-          }}
-          className="bg-brand-red hover:bg-brand-redDark text-white font-extrabold text-xs px-5 py-2.5 rounded-2xl shadow flex items-center gap-2 transition"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Create New Event</span>
-        </button>
+        {canCreate && (
+          <button
+            onClick={() => {
+              setError('');
+              setShowEventModal(true);
+            }}
+            className="bg-brand-red hover:bg-brand-redDark text-white font-extrabold text-xs px-5 py-2.5 rounded-2xl shadow flex items-center gap-2 transition"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Create New Event</span>
+          </button>
+        )}
       </div>
 
       {/* Events List */}
@@ -204,13 +211,15 @@ export default function EventsPage() {
             </div>
 
             <div className="pt-4 border-t flex flex-wrap gap-2">
-              <button
-                onClick={() => { setSelectedEventId(evt.id); setShowAssignModal(true); }}
-                className="flex-1 bg-gray-100 hover:bg-gray-200 text-brand-dark py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition"
-              >
-                <UserPlus className="w-4 h-4" />
-                <span>Assign Worker</span>
-              </button>
+              {canManage && (
+                <button
+                  onClick={() => { setSelectedEventId(evt.id); setShowAssignModal(true); }}
+                  className="flex-1 bg-gray-100 hover:bg-gray-200 text-brand-dark py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>Assign Worker</span>
+                </button>
+              )}
 
               <Link
                 to={`/events/${evt.id}`}

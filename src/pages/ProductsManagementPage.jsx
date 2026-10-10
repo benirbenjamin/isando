@@ -1,9 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Package, Plus, Edit3, Trash2, Tag, Check, Sparkles } from 'lucide-react';
+import { Package, Plus, Edit3, Trash2, Tag, Check, Sparkles, ShieldAlert } from 'lucide-react';
 import { api, formatCurrency, calcDiscountPct, getImageUrl } from '../services/api';
 import ImageGalleryManager from '../components/ImageGalleryManager';
+import { useAuth } from '../context/AuthContext';
 
 export default function ProductsManagementPage() {
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission('products.create');
+  const canEdit = hasPermission('products.edit');
+  const canDelete = hasPermission('products.delete');
+  const canView = hasPermission('products.view');
+
   const [products, setProducts] = useState([]);
   const [divisions, setDivisions] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -166,6 +173,16 @@ export default function ProductsManagementPage() {
   const selectedDiv = divisions.find(d => d.id === form.businessDivisionId);
   const discount = calcDiscountPct(parseFloat(form.regularPrice), parseFloat(form.salePrice));
 
+  if (!canView) {
+    return (
+      <div className="text-center py-16 bg-white border border-brand-border rounded-3xl p-8 max-w-md mx-auto space-y-3 shadow-sm">
+        <ShieldAlert className="w-12 h-12 text-brand-red mx-auto" />
+        <h2 className="text-lg font-black text-brand-dark">Access Restricted</h2>
+        <p className="text-xs text-gray-500">You do not have authorization to view product management operations.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -180,13 +197,15 @@ export default function ProductsManagementPage() {
           </p>
         </div>
 
-        <button
-          onClick={openCreateModal}
-          className="bg-brand-red hover:bg-brand-redDark text-white font-extrabold text-xs px-5 py-2.5 rounded-2xl shadow flex items-center gap-2 transition"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add New Product</span>
-        </button>
+        {canCreate && (
+          <button
+            onClick={openCreateModal}
+            className="bg-brand-red hover:bg-brand-redDark text-white font-extrabold text-xs px-5 py-2.5 rounded-2xl shadow flex items-center gap-2 transition"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add New Product</span>
+          </button>
+        )}
       </div>
 
       {/* Products Table */}
@@ -199,12 +218,14 @@ export default function ProductsManagementPage() {
           <div className="text-center py-12 space-y-3">
             <Package className="w-12 h-12 text-gray-300 mx-auto" />
             <p className="font-bold text-brand-dark text-sm">No products found</p>
-            <button
-              onClick={openCreateModal}
-              className="text-xs font-black text-brand-red hover:underline"
-            >
-              + Create the first product
-            </button>
+            {canCreate && (
+              <button
+                onClick={openCreateModal}
+                className="text-xs font-black text-brand-red hover:underline"
+              >
+                + Create the first product
+              </button>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -217,7 +238,7 @@ export default function ProductsManagementPage() {
                   <th className="p-3">Sale Price</th>
                   <th className="p-3 text-center">Discount</th>
                   <th className="p-3 text-center">Stock</th>
-                  <th className="p-3 text-right">Actions</th>
+                  {(canEdit || canDelete) && <th className="p-3 text-right">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -269,22 +290,28 @@ export default function ProductsManagementPage() {
                           {p.stockQuantity}
                         </span>
                       </td>
-                      <td className="p-3 text-right space-x-1 whitespace-nowrap">
-                        <button
-                          onClick={() => openEditModal(p)}
-                          className="p-2 text-gray-600 hover:text-brand-red hover:bg-amber-50 rounded-xl transition"
-                          title="Edit Product"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(p.id)}
-                          className="p-2 text-gray-400 hover:text-brand-red hover:bg-red-50 rounded-xl transition"
-                          title="Delete Product"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
+                      {(canEdit || canDelete) && (
+                        <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                          {canEdit && (
+                            <button
+                              onClick={() => openEditModal(p)}
+                              className="p-2 text-gray-600 hover:text-brand-red hover:bg-amber-50 rounded-xl transition"
+                              title="Edit Product"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                          )}
+                          {canDelete && (
+                            <button
+                              onClick={() => handleDelete(p.id)}
+                              className="p-2 text-gray-400 hover:text-brand-red hover:bg-red-50 rounded-xl transition"
+                              title="Delete Product"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   );
                 })}

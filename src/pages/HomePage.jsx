@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ChevronLeft, ChevronRight, Sparkles, MessageCircle, HeartHandshake,
-  Briefcase, ArrowRight, Utensils, Shirt, Flame, Camera, Car
+  Briefcase, ArrowRight, Utensils, Shirt, Flame, Camera, Car,
+  Zap, Target, Shield, CheckCircle, Eye, Award
 } from 'lucide-react';
 import { api, getWhatsAppLink, getImageUrl, getImageBackupUrl } from '../services/api';
 import ProductCard from '../components/ProductCard';
@@ -1019,6 +1020,90 @@ export default function HomePage() {
           </div>
         </section>
       )}
+
+      {/* =========================================================================
+          ABOUT ROMANTIC T SOLUTIONS & CORE VALUES SECTION
+          ========================================================================= */}
+      <section className="max-w-7xl mx-auto px-4 space-y-8">
+        <div className="bg-gradient-to-br from-brand-soft via-white to-amber-50/40 border border-brand-border rounded-3xl p-6 sm:p-10 shadow-sm space-y-8">
+          <div className="text-center max-w-4xl mx-auto space-y-3">
+            <span className="bg-brand-yellow text-brand-dark text-xs font-black px-4 py-1.5 rounded-full uppercase tracking-wider inline-block">
+              ABOUT ROMANTIC T SOLUTIONS
+            </span>
+            <h2 className="text-2xl sm:text-4xl font-black text-brand-dark leading-tight">
+              Your Trusted Partner in Business Solutions!!!
+            </h2>
+            <p className="text-xs sm:text-sm text-gray-700 leading-relaxed font-medium">
+              <em>
+                Romantic T Solutions is an e-commerce platform,all in one service provider based in Kigali,Rwanda.Romantic T Solutions Provides a wide range of professional services integrating Photography&Videography,Catering Equipment Rentals, Luxury Car rentals,Food &Beverages,IT Supplies and Consultancy services For Individuals, Businesses,Private and Public institutions!!!
+              </em>
+            </p>
+          </div>
+
+          {/* Lightning Speed Delivery Callout */}
+          <div className="bg-gradient-to-r from-brand-red to-rose-700 text-white rounded-2xl p-4 flex items-center justify-center gap-3 shadow-md max-w-2xl mx-auto text-center">
+            <Zap className="w-5 h-5 text-brand-yellow fill-brand-yellow flex-shrink-0 animate-bounce" />
+            <span className="text-xs sm:text-sm font-black italic">
+              Make order you will be served within 24hours at Lightning Speed!!!
+            </span>
+          </div>
+
+          {/* Vision & Mission */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
+            <div className="bg-white border-2 border-brand-yellow rounded-2xl p-5 shadow-2xs space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="bg-amber-100 text-brand-dark p-1.5 rounded-lg">
+                  <Eye className="w-4 h-4 text-brand-dark" />
+                </span>
+                <span className="text-[11px] font-black uppercase tracking-wider text-amber-800">
+                  Vision statement
+                </span>
+              </div>
+              <p className="text-xs text-gray-700 font-semibold leading-relaxed">
+                To be a champion in High-value event solutions ,ICT Solutions, Agri-Food Supply ,and Consultancy services.
+              </p>
+            </div>
+
+            <div className="bg-white border-2 border-brand-red/30 rounded-2xl p-5 shadow-2xs space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="bg-rose-100 text-brand-red p-1.5 rounded-lg">
+                  <Target className="w-4 h-4 text-brand-red" />
+                </span>
+                <span className="text-[11px] font-black uppercase tracking-wider text-brand-red">
+                  Mission statement
+                </span>
+              </div>
+              <p className="text-xs text-gray-700 font-semibold leading-relaxed">
+                To provide High Quality Product access and Consultancy to every Rwandan.
+              </p>
+            </div>
+          </div>
+
+          {/* Core Values */}
+          <div className="max-w-5xl mx-auto space-y-4">
+            <h3 className="text-center text-xs font-black text-brand-red uppercase tracking-wider">
+              Core Values
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              {[
+                { n: '1', t: 'Professionalism', d: 'We implement what learnt with respect and integrity', c: 'bg-brand-red text-white' },
+                { n: '2', t: 'Accountability', d: 'We are decisive and Responsible', c: 'bg-brand-yellow text-brand-dark' },
+                { n: '3', t: 'Honesty', d: 'We always seek to do what is Right', c: 'bg-emerald-600 text-white' },
+                { n: '4', t: 'Customer Expectations', d: 'We always aim to satisfy our costomers', c: 'bg-blue-600 text-white' },
+                { n: '5', t: 'Innovative', d: 'We Solve it differently', c: 'bg-purple-600 text-white' },
+              ].map(v => (
+                <div key={v.n} className="bg-white border border-brand-border rounded-2xl p-4 shadow-2xs space-y-1.5">
+                  <span className={`w-6 h-6 rounded-lg ${v.c} font-black text-[11px] flex items-center justify-center`}>
+                    {v.n}
+                  </span>
+                  <h4 className="font-extrabold text-xs text-brand-dark">{v.t}</h4>
+                  <p className="text-[11px] text-gray-500 leading-snug">{v.d}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* =========================================================================
           WHATSAPP QUICK ORDER BANNER

@@ -169,6 +169,117 @@ router.post('/conversations/direct', authenticateToken, async (req, res) => {
 });
 
 /**
+ * Start Group Conversation with multiple receivers
+ */
+router.post('/conversations/group', authenticateToken, async (req, res) => {
+  try {
+    const { title, userIds } = req.body;
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ error: 'Please select at least one receiver' });
+    }
+
+    const uniqueUserIds = Array.from(new Set([req.user.id, ...userIds.filter(Boolean)]));
+    const groupTitle = title?.trim() || `Group Chat (${uniqueUserIds.length} members)`;
+
+    const newConv = await prisma.conversation.create({
+      data: {
+        title: groupTitle,
+        type: 'GROUP',
+        members: {
+          create: uniqueUserIds.map(uId => ({ userId: uId }))
+        }
+      },
+      include: {
+        members: {
+          include: { user: { select: { id: true, fullName: true, profileImage: true, role: { select: { name: true } } } } }
+        }
+      }
+    });
+
+    // Initial greeting message
+    await prisma.message.create({
+      data: {
+        conversationId: newConv.id,
+        senderId: req.user.id,
+        text: `💬 ${req.user.fullName || 'User'} started this conversation with ${newConv.members.map(m => m.user?.fullName).join(', ')}.`,
+      }
+    });
+
+    return res.status(201).json(newConv);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Add Member(s) / Receivers to an existing Conversation
+ */
+router.post('/conversations/:id/members', authenticateToken, async (req, res) => {
+  try {
+    const conversationId = req.params.id;
+    const { userIds, userId } = req.body;
+    const idsToAdd = Array.isArray(userIds) ? userIds : (userId ? [userId] : []);
+
+    if (idsToAdd.length === 0) {
+      return res.status(400).json({ error: 'No user IDs provided to add' });
+    }
+
+    const conv = await prisma.conversation.findUnique({
+      where: { id: conversationId },
+      include: { members: true }
+    });
+
+    if (!conv) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+
+    const addedUsers = [];
+    for (const uId of idsToAdd) {
+      const alreadyMember = conv.members.some(m => m.userId === uId);
+      if (!alreadyMember) {
+        await prisma.conversationMember.create({
+          data: { conversationId, userId: uId }
+        }).catch(() => {});
+
+        const u = await prisma.user.findUnique({ where: { id: uId }, select: { fullName: true } }).catch(() => null);
+        if (u) addedUsers.push(u.fullName);
+      }
+    }
+
+    if (addedUsers.length > 0) {
+      // If was DIRECT, convert to GROUP
+      if (conv.type === 'DIRECT') {
+        await prisma.conversation.update({
+          where: { id: conversationId },
+          data: { type: 'GROUP' }
+        }).catch(() => {});
+      }
+
+      await prisma.message.create({
+        data: {
+          conversationId,
+          senderId: req.user.id,
+          text: `➕ ${req.user.fullName || 'User'} added ${addedUsers.join(', ')} to the chat.`,
+        }
+      }).catch(() => {});
+    }
+
+    const updatedConv = await prisma.conversation.findUnique({
+      where: { id: conversationId },
+      include: {
+        members: {
+          include: { user: { select: { id: true, fullName: true, profileImage: true, role: { select: { name: true } } } } }
+        }
+      }
+    });
+
+    return res.json(updatedConv);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * Get Message History + Read/Seen Tracking details for a Conversation
  */
 router.get('/conversations/:id/messages', authenticateToken, async (req, res) => {

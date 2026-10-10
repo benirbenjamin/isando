@@ -1,9 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Layers, Plus, Trash2, Edit3, MapPin, Sparkles } from 'lucide-react';
+import { Layers, Plus, Trash2, Edit3, MapPin, Sparkles, ShieldAlert } from 'lucide-react';
 import { api, formatCurrency } from '../services/api';
 import ImageGalleryManager from '../components/ImageGalleryManager';
+import { useAuth } from '../context/AuthContext';
 
 export default function ServicesManagementPage() {
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission('services.create');
+  const canEdit = hasPermission('services.edit');
+  const canDelete = hasPermission('services.delete');
+  const canView = hasPermission('services.view');
   const [services, setServices] = useState([]);
   const [divisions, setDivisions] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -153,6 +159,16 @@ export default function ServicesManagementPage() {
 
   const selectedDiv = divisions.find(d => d.id === form.businessDivisionId);
 
+  if (!canView) {
+    return (
+      <div className="text-center py-16 bg-white border border-brand-border rounded-3xl p-8 max-w-md mx-auto space-y-3 shadow-sm">
+        <ShieldAlert className="w-12 h-12 text-brand-red mx-auto" />
+        <h2 className="text-lg font-black text-brand-dark">Access Restricted</h2>
+        <p className="text-xs text-gray-500">You do not have authorization to view service management operations.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -167,13 +183,15 @@ export default function ServicesManagementPage() {
           </p>
         </div>
 
-        <button
-          onClick={openCreateModal}
-          className="bg-brand-yellow hover:bg-brand-yellowDark text-brand-dark font-extrabold text-xs px-5 py-2.5 rounded-2xl shadow flex items-center gap-2 transition"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add New Service</span>
-        </button>
+        {canCreate && (
+          <button
+            onClick={openCreateModal}
+            className="bg-brand-yellow hover:bg-brand-yellowDark text-brand-dark font-extrabold text-xs px-5 py-2.5 rounded-2xl shadow flex items-center gap-2 transition"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add New Service</span>
+          </button>
+        )}
       </div>
 
       {/* Services Grid */}
@@ -208,22 +226,28 @@ export default function ServicesManagementPage() {
                     <span className="bg-brand-soft border border-brand-border px-2 py-0.5 rounded text-[10px] font-extrabold text-brand-dark">
                       {s.category?.name || 'Service'}
                     </span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => openEditModal(s)}
-                        className="p-1.5 text-gray-500 hover:text-brand-dark hover:bg-gray-100 rounded-lg transition"
-                        title="Edit Service"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(s.id)}
-                        className="p-1.5 text-gray-500 hover:text-brand-red hover:bg-red-50 rounded-lg transition"
-                        title="Delete Service"
-                      >
-                        <Trash2 className="w-4 h-4 text-red-500" />
-                      </button>
-                    </div>
+                    {(canEdit || canDelete) && (
+                      <div className="flex items-center gap-1">
+                        {canEdit && (
+                          <button
+                            onClick={() => openEditModal(s)}
+                            className="p-1.5 text-gray-500 hover:text-brand-dark hover:bg-gray-100 rounded-lg transition"
+                            title="Edit Service"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            onClick={() => handleDelete(s.id)}
+                            className="p-1.5 text-gray-500 hover:text-brand-red hover:bg-red-50 rounded-lg transition"
+                            title="Delete Service"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <h3 className="font-bold text-base text-brand-dark line-clamp-1">{s.name}</h3>

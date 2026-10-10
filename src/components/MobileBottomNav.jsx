@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 
 export default function MobileBottomNav({ onOpenMobileMenu }) {
   const location = useLocation();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, hasPermission } = useAuth();
   const isDashboardArea = location.pathname.startsWith('/dashboard') ||
     location.pathname.startsWith('/events') ||
     location.pathname.startsWith('/sales') ||
@@ -25,6 +25,9 @@ export default function MobileBottomNav({ onOpenMobileMenu }) {
 
   // Internal Management / Dashboard bottom navigation
   if (isDashboardArea && isAuthenticated) {
+    const canViewEvents = hasPermission('events.view');
+    const canViewSales = hasPermission('sales.view') || hasPermission('sales.create');
+
     return (
       <nav className="fixed bottom-0 inset-x-0 z-40 bg-[#1C1F27]/95 backdrop-blur-md border-t border-gray-800 text-gray-300 md:hidden shadow-2xl">
         <div className="grid grid-cols-5 h-16 items-center">
@@ -42,29 +45,57 @@ export default function MobileBottomNav({ onOpenMobileMenu }) {
             <span className="text-[10px]">Home</span>
           </NavLink>
 
-          <NavLink
-            to="/events"
-            className={({ isActive }) =>
-              `flex flex-col items-center justify-center h-full transition ${
-                isActive ? 'text-brand-yellow font-bold' : 'text-gray-400 hover:text-white'
-              }`
-            }
-          >
-            <Calendar className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px]">Events</span>
-          </NavLink>
+          {canViewEvents ? (
+            <NavLink
+              to="/events"
+              className={({ isActive }) =>
+                `flex flex-col items-center justify-center h-full transition ${
+                  isActive ? 'text-brand-yellow font-bold' : 'text-gray-400 hover:text-white'
+                }`
+              }
+            >
+              <Calendar className="w-5 h-5 mb-0.5" />
+              <span className="text-[10px]">Events</span>
+            </NavLink>
+          ) : (
+            <NavLink
+              to="/messages"
+              className={({ isActive }) =>
+                `flex flex-col items-center justify-center h-full transition ${
+                  isActive ? 'text-brand-yellow font-bold' : 'text-gray-400 hover:text-white'
+                }`
+              }
+            >
+              <MessageSquare className="w-5 h-5 mb-0.5" />
+              <span className="text-[10px]">Chat</span>
+            </NavLink>
+          )}
 
-          <NavLink
-            to="/sales"
-            className={({ isActive }) =>
-              `flex flex-col items-center justify-center h-full transition ${
-                isActive ? 'text-brand-yellow font-bold' : 'text-gray-400 hover:text-white'
-              }`
-            }
-          >
-            <ShoppingCart className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px]">Sales</span>
-          </NavLink>
+          {canViewSales ? (
+            <NavLink
+              to="/sales"
+              className={({ isActive }) =>
+                `flex flex-col items-center justify-center h-full transition ${
+                  isActive ? 'text-brand-yellow font-bold' : 'text-gray-400 hover:text-white'
+                }`
+              }
+            >
+              <ShoppingCart className="w-5 h-5 mb-0.5" />
+              <span className="text-[10px]">Sales</span>
+            </NavLink>
+          ) : (
+            <NavLink
+              to="/products"
+              className={({ isActive }) =>
+                `flex flex-col items-center justify-center h-full transition ${
+                  isActive ? 'text-brand-yellow font-bold' : 'text-gray-400 hover:text-white'
+                }`
+              }
+            >
+              <ShoppingBag className="w-5 h-5 mb-0.5" />
+              <span className="text-[10px]">Shop</span>
+            </NavLink>
+          )}
 
           <NavLink
             to="/dashboard"

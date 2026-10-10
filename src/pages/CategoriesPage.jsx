@@ -1,11 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Tags, Plus, Edit2, ChevronUp, ChevronDown, 
-  ChevronsUp, ChevronsDown, GripVertical, Check, Trash2, AlertCircle 
+  ChevronsUp, ChevronsDown, GripVertical, Check, Trash2, AlertCircle, ShieldAlert 
 } from 'lucide-react';
 import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 export default function CategoriesPage() {
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission('products.create');
+  const canEdit = hasPermission('products.edit');
+  const canView = hasPermission('products.view') || canCreate;
+
   const [divisions, setDivisions] = useState([]);
   const [showDivModal, setShowDivModal] = useState(false);
   const [showCatModal, setShowCatModal] = useState(false);
@@ -213,6 +219,16 @@ export default function CategoriesPage() {
     );
   }
 
+  if (!canView) {
+    return (
+      <div className="text-center py-16 bg-white border border-brand-border rounded-3xl p-8 max-w-md mx-auto space-y-3 shadow-sm">
+        <ShieldAlert className="w-12 h-12 text-brand-red mx-auto" />
+        <h2 className="text-lg font-black text-brand-dark">Access Restricted</h2>
+        <p className="text-xs text-gray-500">You do not have authorization to view divisions and category management.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -235,13 +251,15 @@ export default function CategoriesPage() {
             </span>
           )}
 
-          <button
-            onClick={() => setShowDivModal(true)}
-            className="bg-brand-yellow hover:bg-brand-yellowDark text-brand-dark font-extrabold text-xs px-5 py-2.5 rounded-2xl shadow flex items-center gap-2 transition"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Create New Division</span>
-          </button>
+          {canCreate && (
+            <button
+              onClick={() => setShowDivModal(true)}
+              className="bg-brand-yellow hover:bg-brand-yellowDark text-brand-dark font-extrabold text-xs px-5 py-2.5 rounded-2xl shadow flex items-center gap-2 transition"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create New Division</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -388,26 +406,30 @@ export default function CategoriesPage() {
                   </button>
 
                   {/* Edit Division Button */}
-                  <button
-                    onClick={() => openEditDivision(div)}
-                    className="bg-brand-soft border border-brand-border hover:bg-brand-yellow text-brand-dark font-bold text-xs px-3 py-1.5 rounded-xl transition flex items-center gap-1"
-                    title="Rename division"
-                  >
-                    <Edit2 className="w-3 h-3 text-brand-dark" />
-                    <span>Edit</span>
-                  </button>
+                  {canEdit && (
+                    <button
+                      onClick={() => openEditDivision(div)}
+                      className="bg-brand-soft border border-brand-border hover:bg-brand-yellow text-brand-dark font-bold text-xs px-3 py-1.5 rounded-xl transition flex items-center gap-1"
+                      title="Rename division"
+                    >
+                      <Edit2 className="w-3 h-3 text-brand-dark" />
+                      <span>Edit</span>
+                    </button>
+                  )}
 
                   {/* Add Category Button */}
-                  <button
-                    onClick={() => { setSelectedDivId(div.id); setShowCatModal(true); }}
-                    className="bg-brand-dark hover:bg-black text-white font-bold text-xs px-3.5 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm"
-                  >
-                    <Plus className="w-3.5 h-3.5 text-brand-yellow" />
-                    <span>Add Category</span>
-                  </button>
+                  {canCreate && (
+                    <button
+                      onClick={() => { setSelectedDivId(div.id); setShowCatModal(true); }}
+                      className="bg-brand-dark hover:bg-black text-white font-bold text-xs px-3.5 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-brand-yellow" />
+                      <span>Add Category</span>
+                    </button>
+                  )}
 
                   {/* Delete Division Button (if empty) */}
-                  {(!div._count?.products && !div._count?.services && (!div.categories || div.categories.length === 0)) && (
+                  {canEdit && (!div._count?.products && !div._count?.services && (!div.categories || div.categories.length === 0)) && (
                     <button
                       onClick={() => handleDeleteDivision(div)}
                       className="text-red-500 hover:text-white hover:bg-red-500 p-1.5 rounded-xl border border-red-200 transition"

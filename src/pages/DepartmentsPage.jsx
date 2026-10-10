@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Layers, Plus } from 'lucide-react';
+import { Layers, Plus, ShieldAlert } from 'lucide-react';
 import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 export default function DepartmentsPage() {
+  const { hasPermission } = useAuth();
+  const canManage = hasPermission('settings.manage');
   const [departments, setDepartments] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [name, setName] = useState('');
@@ -38,6 +41,16 @@ export default function DepartmentsPage() {
     }
   };
 
+  if (!canManage) {
+    return (
+      <div className="text-center py-16 bg-white border border-brand-border rounded-3xl p-8 max-w-md mx-auto space-y-3 shadow-sm">
+        <ShieldAlert className="w-12 h-12 text-brand-red mx-auto" />
+        <h2 className="text-lg font-black text-brand-dark">Access Restricted</h2>
+        <p className="text-xs text-gray-500">You do not have authorization to manage company departments.</p>
+      </div>
+    );
+  }
+
   if (loading) return <div className="text-center py-12 text-xs font-bold text-gray-400">Loading departments...</div>;
 
   return (
@@ -51,13 +64,15 @@ export default function DepartmentsPage() {
           <p className="text-xs text-brand-muted mt-1">Organize workers into functional departments</p>
         </div>
 
-        <button
-          onClick={() => setShowModal(true)}
-          className="bg-brand-red hover:bg-brand-redDark text-white font-extrabold text-xs px-5 py-2.5 rounded-2xl shadow flex items-center gap-2 transition"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add Department</span>
-        </button>
+        {canManage && (
+          <button
+            onClick={() => setShowModal(true)}
+            className="bg-brand-red hover:bg-brand-redDark text-white font-extrabold text-xs px-5 py-2.5 rounded-2xl shadow flex items-center gap-2 transition"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Department</span>
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">

@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Plus, Shield, KeyRound, CheckCircle2, XCircle, Edit3, Trash2 } from 'lucide-react';
+import { Users, Plus, Shield, KeyRound, CheckCircle2, XCircle, Edit3, Trash2, ShieldAlert } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 export default function WorkersPage() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, hasPermission } = useAuth();
+  const canCreate = hasPermission('users.create');
+  const canEdit = hasPermission('users.edit');
+  const canView = hasPermission('users.view');
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -147,6 +150,16 @@ export default function WorkersPage() {
     }
   };
 
+  if (!canView) {
+    return (
+      <div className="text-center py-16 bg-white border border-brand-border rounded-3xl p-8 max-w-md mx-auto space-y-3 shadow-sm">
+        <ShieldAlert className="w-12 h-12 text-brand-red mx-auto" />
+        <h2 className="text-lg font-black text-brand-dark">Access Restricted</h2>
+        <p className="text-xs text-gray-500">You do not have authorization to view worker and workforce management.</p>
+      </div>
+    );
+  }
+
   if (loading) return <div className="text-center py-12 text-xs font-bold text-gray-400">Loading workers data...</div>;
 
   return (
@@ -163,16 +176,18 @@ export default function WorkersPage() {
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            setError('');
-            setShowModal(true);
-          }}
-          className="bg-brand-red hover:bg-brand-redDark text-white font-extrabold text-xs px-5 py-2.5 rounded-2xl shadow flex items-center gap-2 transition"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add New Worker</span>
-        </button>
+        {canCreate && (
+          <button
+            onClick={() => {
+              setError('');
+              setShowModal(true);
+            }}
+            className="bg-brand-red hover:bg-brand-redDark text-white font-extrabold text-xs px-5 py-2.5 rounded-2xl shadow flex items-center gap-2 transition"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add New Worker</span>
+          </button>
+        )}
       </div>
 
       {/* Users Table */}
@@ -207,34 +222,40 @@ export default function WorkersPage() {
                     </span>
                   </td>
                   <td className="p-3 text-right space-x-1 whitespace-nowrap">
-                    <button
-                      onClick={() => openEditModal(u)}
-                      className="p-1.5 text-gray-600 hover:text-brand-dark hover:bg-amber-100 rounded-lg transition"
-                      title="Edit User"
-                    >
-                      <Edit3 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => { setSelectedUserId(u.id); setShowResetModal(true); }}
-                      className="p-1.5 text-gray-500 hover:text-brand-dark hover:bg-gray-100 rounded-lg transition"
-                      title="Reset Password"
-                    >
-                      <KeyRound className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleToggleStatus(u)}
-                      className="p-1.5 text-gray-500 hover:text-brand-red hover:bg-gray-100 rounded-lg transition"
-                      title="Toggle Status"
-                    >
-                      {u.status === 'ACTIVE' ? <XCircle className="w-4 h-4 text-red-500" /> : <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
-                    </button>
-                    <button
-                      onClick={() => handleDeleteUser(u)}
-                      className="p-1.5 text-gray-400 hover:text-brand-red hover:bg-red-50 rounded-lg transition"
-                      title="Delete User"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {canEdit ? (
+                      <>
+                        <button
+                          onClick={() => openEditModal(u)}
+                          className="p-1.5 text-gray-600 hover:text-brand-dark hover:bg-amber-100 rounded-lg transition"
+                          title="Edit User"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => { setSelectedUserId(u.id); setShowResetModal(true); }}
+                          className="p-1.5 text-gray-500 hover:text-brand-dark hover:bg-gray-100 rounded-lg transition"
+                          title="Reset Password"
+                        >
+                          <KeyRound className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleToggleStatus(u)}
+                          className="p-1.5 text-gray-500 hover:text-brand-red hover:bg-gray-100 rounded-lg transition"
+                          title="Toggle Status"
+                        >
+                          {u.status === 'ACTIVE' ? <XCircle className="w-4 h-4 text-red-500" /> : <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteUser(u)}
+                          className="p-1.5 text-gray-400 hover:text-brand-red hover:bg-red-50 rounded-lg transition"
+                          title="Delete User"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-gray-400 text-[10px]">Read-only</span>
+                    )}
                   </td>
                 </tr>
               ))}

@@ -88,14 +88,15 @@ export default function Navbar() {
           </form>
 
           {/* Right Navigation */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Desktop-only Home button (removed from mobile view as requested) */}
+          <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
+            {/* Home button - visible on both mobile and desktop */}
             <Link 
               to="/" 
-              className="hidden md:flex px-3 py-1.5 text-sm font-bold text-brand-dark hover:text-brand-red items-center gap-1.5 transition"
+              className="flex px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-bold text-brand-dark hover:text-brand-red items-center gap-1 transition rounded-full hover:bg-gray-100"
+              title="Home"
             >
               <Home className="w-4 h-4 text-brand-red" />
-              <span>Home</span>
+              <span className="inline">Home</span>
             </Link>
 
             <Link to="/products" className="hidden lg:inline-block px-3 py-1.5 text-sm font-semibold text-gray-700 hover:text-brand-red">
@@ -108,15 +109,16 @@ export default function Navbar() {
               About
             </Link>
 
-            {/* Desktop-only WhatsApp button (removed from mobile top view as requested) */}
+            {/* WhatsApp button - visible on both mobile and desktop */}
             <a
               href={getWhatsAppLink('250786639945', 'Hello Romantic T Solutions Ltd, I would like to inquire about your products and services.')}
               target="_blank"
               rel="noreferrer"
-              className="hidden md:flex bg-[#25D366] hover:bg-[#20ba59] text-white px-3.5 py-2 rounded-full font-bold text-xs sm:text-sm items-center gap-1.5 shadow transition"
+              className="flex bg-[#25D366] hover:bg-[#20ba59] text-white px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-full font-bold text-xs sm:text-sm items-center gap-1 sm:gap-1.5 shadow transition"
+              title="WhatsApp"
             >
               <MessageCircle className="w-4 h-4" />
-              <span>WhatsApp</span>
+              <span className="inline">WhatsApp</span>
             </a>
 
             {/* Platform Auth / Dashboard Button */}

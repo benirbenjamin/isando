@@ -51,10 +51,22 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  const isSuperAdmin = Boolean(
+    user?.isSuperAdmin ||
+    user?.role === 'Super Administrator' ||
+    user?.email?.toLowerCase() === 'romantictsolutions@gmail.com'
+  );
+
+  const isAdmin = Boolean(
+    user?.isAdmin ||
+    isSuperAdmin ||
+    user?.role === 'Administrator'
+  );
+
   const hasPermission = (permissionCode) => {
     if (!user) return false;
-    if (user.isAdmin) return true;
-    return Array.isArray(user.permissions) && user.permissions.includes(permissionCode);
+    if (isSuperAdmin || isAdmin) return true;
+    return Array.isArray(user.permissions) && (user.permissions.includes(permissionCode) || user.permissions.includes('*'));
   };
 
   return (
@@ -68,7 +80,8 @@ export function AuthProvider({ children }) {
       logout,
       hasPermission,
       isAuthenticated: Boolean(user),
-      isAdmin: Boolean(user?.isAdmin),
+      isAdmin,
+      isSuperAdmin,
     }}>
       {children}
     </AuthContext.Provider>

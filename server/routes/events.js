@@ -167,6 +167,34 @@ router.post('/', authenticateToken, hasPermission('events.create'), async (req, 
       include: { manager: true }
     });
 
+    // Create dedicated event chat room immediately upon event creation
+    try {
+      const eventConv = await prisma.conversation.create({
+        data: {
+          title: `🎉 ${event.name} - Event Team Chat`,
+          type: 'EVENT',
+          relatedEntityId: event.id,
+          members: {
+            create: [
+              { userId: req.user.id },
+              ...(managerId && managerId !== req.user.id ? [{ userId: managerId }] : [])
+            ]
+          }
+        }
+      });
+
+      // Post initial welcome message
+      await prisma.message.create({
+        data: {
+          conversationId: eventConv.id,
+          senderId: req.user.id,
+          text: `🎉 Welcome to the official Event Command Team Chat for "${event.name}"!\n📅 Date: ${new Date(date).toLocaleDateString()}\n📍 Venue: ${venue}\n👥 Team coordination, duty reporting, and live updates begin here.`,
+        }
+      });
+    } catch (chatRoomErr) {
+      console.warn('Auto event room setup notice:', chatRoomErr.message);
+    }
+
     await prisma.auditLog.create({
       data: {
         userId: req.user.id,
@@ -261,6 +289,30 @@ router.post('/:id/assign', authenticateToken, hasPermission('events.manage'), as
         entityType: 'event',
       }
     });
+
+    // Auto-add assigned worker to event's team conversation
+    try {
+      const eventConv = await prisma.conversation.findFirst({
+        where: { relatedEntityId: req.params.id, type: 'EVENT' }
+      });
+      if (eventConv) {
+        await prisma.conversationMember.upsert({
+          where: { conversationId_userId: { conversationId: eventConv.id, userId } },
+          update: {},
+          create: { conversationId: eventConv.id, userId },
+        }).catch(() => {});
+
+        await prisma.message.create({
+          data: {
+            conversationId: eventConv.id,
+            senderId: req.user.id,
+            text: `👋 ${assignment.user?.fullName || 'A team member'} has been assigned to this event as: ${roleName}. Welcome to the crew!`,
+          }
+        }).catch(() => {});
+      }
+    } catch (cErr) {
+      console.warn('Assign worker chat link notice:', cErr.message);
+    }
 
     return res.status(201).json(assignment);
   } catch (err) {
