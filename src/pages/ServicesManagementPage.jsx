@@ -3,6 +3,7 @@ import { Layers, Plus, Trash2, Edit3, MapPin, Sparkles, ShieldAlert } from 'luci
 import { api, formatCurrency } from '../services/api';
 import ImageGalleryManager from '../components/ImageGalleryManager';
 import { useAuth } from '../context/AuthContext';
+import { showToast } from '../utils/toast';
 
 export default function ServicesManagementPage() {
   const { hasPermission } = useAuth();
@@ -135,14 +136,18 @@ export default function ServicesManagementPage() {
 
       if (editingId) {
         await api.put(`/services/${editingId}`, payload);
+        showToast('Service updated successfully!', 'success');
       } else {
         await api.post('/services', payload);
+        showToast('Service published successfully!', 'success');
       }
 
       setShowModal(false);
       loadServices(); // Immediately refresh without reload
     } catch (err) {
-      setError(err.message || 'Failed to save service');
+      const msg = err.message || 'Failed to save service';
+      setError(msg);
+      showToast(msg, 'error');
     }
   };
 
@@ -151,9 +156,10 @@ export default function ServicesManagementPage() {
     try {
       await api.delete(`/services/${id}`);
       setServices(prev => prev.filter(s => s.id !== id));
+      showToast('Service deleted successfully!', 'success');
       loadServices();
     } catch (err) {
-      alert(err.message);
+      showToast(err.message || 'Failed to delete service', 'error');
     }
   };
 
@@ -271,18 +277,33 @@ export default function ServicesManagementPage() {
 
       {/* Service Create/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 space-y-4 shadow-2xl animate-pop my-8 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center border-b pb-3 sticky top-0 bg-white z-10">
-              <h3 className="text-lg font-black text-brand-dark">
-                {editingId ? 'Edit Service Details' : 'Create New Service'}
-              </h3>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-red-500 font-bold text-xl">&times;</button>
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-2 sm:p-4 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-2xl w-full shadow-2xl animate-pop max-h-[95vh] sm:max-h-[90vh] flex flex-col overflow-hidden">
+            {/* Sticky Header */}
+            <div className="flex justify-between items-center border-b border-brand-border px-4 py-3 sm:px-6 sm:py-4 bg-white flex-shrink-0">
+              <div className="min-w-0 pr-2">
+                <h3 className="text-base sm:text-lg font-black text-brand-dark flex items-center gap-2 truncate">
+                  <Layers className="w-5 h-5 text-brand-yellow flex-shrink-0" />
+                  <span className="truncate">{editingId ? 'Edit Service Details' : 'Create New Service'}</span>
+                </h3>
+                <p className="text-[11px] text-gray-400 mt-0.5 line-clamp-1">
+                  Manage service offerings, media gallery, pricing and key highlights
+                </p>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setShowModal(false)} 
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold flex items-center justify-center transition flex-shrink-0 text-lg"
+                title="Close modal"
+              >
+                &times;
+              </button>
             </div>
 
-            {error && <div className="bg-red-50 text-brand-red p-3 rounded-xl text-xs font-semibold">{error}</div>}
+            {/* Scrollable Form Body */}
+            <form id="service-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 text-xs">
+              {error && <div className="bg-red-50 text-brand-red p-3 rounded-xl text-xs font-semibold">{error}</div>}
 
-            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
               <div>
                 <label className="font-bold text-brand-dark block mb-1">Service Title *</label>
                 <input
@@ -291,7 +312,7 @@ export default function ServicesManagementPage() {
                   placeholder="e.g. Wedding Cinematic Videography & Drones"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full p-2.5 bg-brand-soft border border-brand-border rounded-xl font-bold"
+                  className="w-full p-2.5 sm:p-3 bg-brand-soft border border-brand-border rounded-xl font-bold text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand-yellow"
                 />
               </div>
 
@@ -327,12 +348,16 @@ export default function ServicesManagementPage() {
               </div>
 
               {/* Image Gallery & Featured Image Manager */}
-              <ImageGalleryManager
-                featuredImage={form.featuredImage}
-                onFeaturedChange={(url) => setForm({ ...form, featuredImage: url })}
-                gallery={form.gallery}
-                onGalleryChange={(gal) => setForm({ ...form, gallery: gal })}
-              />
+              <div className="pt-1">
+                <ImageGalleryManager
+                  featuredImage={form.featuredImage}
+                  onFeaturedChange={(url) => setForm(prev => ({ ...prev, featuredImage: url }))}
+                  onChangeFeatured={(url) => setForm(prev => ({ ...prev, featuredImage: url }))}
+                  gallery={form.gallery}
+                  onGalleryChange={(gal) => setForm(prev => ({ ...prev, gallery: gal }))}
+                  onChangeGallery={(gal) => setForm(prev => ({ ...prev, gallery: gal }))}
+                />
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -379,26 +404,37 @@ export default function ServicesManagementPage() {
                 />
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 pt-1">
                 <input
                   type="checkbox"
                   id="featuredService"
                   checked={form.isFeatured}
                   onChange={(e) => setForm({ ...form, isFeatured: e.target.checked })}
-                  className="rounded"
+                  className="rounded accent-brand-yellow"
                 />
-                <label htmlFor="featuredService" className="font-bold text-brand-dark cursor-pointer">
+                <label htmlFor="featuredService" className="font-bold text-brand-dark cursor-pointer text-xs">
                   Featured on Homepage Spotlight
                 </label>
               </div>
+            </form>
 
+            {/* Sticky Footer */}
+            <div className="border-t border-brand-border px-4 py-3 sm:px-6 sm:py-4 bg-gray-50/90 flex items-center gap-2 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-bold text-xs hover:bg-gray-100 transition"
+              >
+                Cancel
+              </button>
               <button
                 type="submit"
-                className="w-full bg-brand-yellow hover:bg-brand-yellowDark text-brand-dark py-3 rounded-2xl font-black text-sm shadow transition"
+                form="service-form"
+                className="flex-1 bg-brand-yellow hover:bg-brand-yellowDark text-brand-dark py-2.5 sm:py-3 rounded-xl font-black text-xs sm:text-sm shadow-md transition text-center"
               >
-                {editingId ? 'Update Service' : 'Publish Service'}
+                {editingId ? 'Update Service Details' : 'Publish Service'}
               </button>
-            </form>
+            </div>
           </div>
         </div>
       )}

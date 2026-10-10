@@ -477,6 +477,7 @@ export default function ChatPage() {
         )}
       </div>
     </div>
+  </div>
 
       {/* ============================================================== */}
       {/* MODAL 1: Choose Who To Chat With (1-to-1 or Multi-Recipient) */}

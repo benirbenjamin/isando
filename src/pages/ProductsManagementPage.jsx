@@ -3,6 +3,7 @@ import { Package, Plus, Edit3, Trash2, Tag, Check, Sparkles, ShieldAlert } from 
 import { api, formatCurrency, calcDiscountPct, getImageUrl } from '../services/api';
 import ImageGalleryManager from '../components/ImageGalleryManager';
 import { useAuth } from '../context/AuthContext';
+import { showToast } from '../utils/toast';
 
 export default function ProductsManagementPage() {
   const { hasPermission } = useAuth();
@@ -147,15 +148,19 @@ export default function ProductsManagementPage() {
 
       if (editingId) {
         await api.put(`/products/${editingId}`, payload);
+        showToast('Product updated successfully!', 'success');
       } else {
         await api.post('/products', payload);
+        showToast('Product created & published successfully!', 'success');
       }
 
       setShowModal(false);
       // Auto-load without reloading the app
       await loadProducts();
     } catch (err) {
-      setError(err.message || 'Failed to save product');
+      const msg = err.message || 'Failed to save product';
+      setError(msg);
+      showToast(msg, 'error');
     }
   };
 
@@ -163,10 +168,11 @@ export default function ProductsManagementPage() {
     if (!window.confirm('Are you sure you want to delete this product?')) return;
     try {
       await api.delete(`/products/${id}`);
+      showToast('Product deleted successfully!', 'success');
       // Auto-load without reloading the app
       await loadProducts();
     } catch (err) {
-      alert(err.message);
+      showToast(err.message || 'Failed to delete product', 'error');
     }
   };
 
@@ -323,28 +329,33 @@ export default function ProductsManagementPage() {
 
       {/* Product Form Modal (Create & Edit) */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 space-y-5 shadow-2xl animate-pop max-h-[92vh] overflow-y-auto">
-            <div className="flex justify-between items-center border-b pb-3">
-              <div>
-                <h3 className="text-xl font-black text-brand-dark">
-                  {editingId ? 'Edit Product' : 'Create New Product'}
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-2 sm:p-4 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-2xl w-full shadow-2xl animate-pop max-h-[95vh] sm:max-h-[90vh] flex flex-col overflow-hidden">
+            {/* Sticky Modal Header */}
+            <div className="flex justify-between items-center border-b border-brand-border px-4 py-3 sm:px-6 sm:py-4 bg-white flex-shrink-0">
+              <div className="min-w-0 pr-2">
+                <h3 className="text-base sm:text-lg font-black text-brand-dark flex items-center gap-2 truncate">
+                  <Package className="w-5 h-5 text-brand-red flex-shrink-0" />
+                  <span className="truncate">{editingId ? 'Edit Product Details' : 'Create New Product'}</span>
                 </h3>
-                <p className="text-[11px] text-gray-400 mt-0.5">
-                  Set featured cover image and multi-image gallery with captions
+                <p className="text-[11px] text-gray-400 mt-0.5 line-clamp-1">
+                  Set featured cover, gallery with captions, prices & stock
                 </p>
               </div>
               <button 
+                type="button"
                 onClick={() => setShowModal(false)} 
-                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold flex items-center justify-center transition"
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold flex items-center justify-center transition flex-shrink-0 text-lg"
+                title="Close modal"
               >
                 &times;
               </button>
             </div>
 
-            {error && <div className="bg-red-50 text-brand-red p-3 rounded-xl text-xs font-semibold">{error}</div>}
+            {/* Scrollable Form Body */}
+            <form id="product-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 text-xs">
+              {error && <div className="bg-red-50 text-brand-red p-3 rounded-xl text-xs font-semibold">{error}</div>}
 
-            <form onSubmit={handleSubmit} className="space-y-5 text-xs">
               <div>
                 <label className="font-bold text-brand-dark block mb-1">Product Name *</label>
                 <input
@@ -353,11 +364,11 @@ export default function ProductsManagementPage() {
                   placeholder="e.g. Classic Bridal Stilettos or Basmati Rice 25kg"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full p-3 bg-brand-soft border border-brand-border rounded-xl font-bold text-sm"
+                  className="w-full p-2.5 sm:p-3 bg-brand-soft border border-brand-border rounded-xl font-bold text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand-yellow"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold text-brand-dark block mb-1">Business Division *</label>
                   <select
@@ -397,7 +408,7 @@ export default function ProductsManagementPage() {
               </div>
 
               {/* Pricing Section with Auto Discount Preview */}
-              <div className="grid grid-cols-3 gap-3 bg-brand-soft p-3.5 rounded-2xl border border-brand-border">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-brand-soft p-3 sm:p-3.5 rounded-2xl border border-brand-border">
                 <div>
                   <label className="font-bold text-brand-dark block mb-1">Regular Price (Frw)</label>
                   <input
@@ -422,13 +433,13 @@ export default function ProductsManagementPage() {
 
                 <div>
                   <label className="font-bold text-brand-dark block mb-1">Auto Discount</label>
-                  <div className="p-2.5 bg-brand-red text-white font-black text-center rounded-xl text-xs flex items-center justify-center">
+                  <div className="p-2.5 bg-brand-red text-white font-black text-center rounded-xl text-xs flex items-center justify-center min-h-[38px]">
                     {discount > 0 ? `${discount}% OFF` : 'No Discount'}
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold text-brand-dark block mb-1">Stock Quantity</label>
                   <input
@@ -462,17 +473,19 @@ export default function ProductsManagementPage() {
               </div>
 
               {/* Rich Image Gallery Manager (Cover + Multiple with Captions) */}
-              <div className="pt-2 border-t">
+              <div className="pt-2 border-t border-brand-border/60">
                 <ImageGalleryManager
                   featuredImage={form.featuredImage}
+                  onFeaturedChange={(url) => setForm(prev => ({ ...prev, featuredImage: url }))}
                   onChangeFeatured={(url) => setForm(prev => ({ ...prev, featuredImage: url }))}
                   gallery={form.gallery}
+                  onGalleryChange={(gallery) => setForm(prev => ({ ...prev, gallery }))}
                   onChangeGallery={(gallery) => setForm(prev => ({ ...prev, gallery }))}
                 />
               </div>
 
               {/* Badges / Visibility Toggles */}
-              <div className="flex flex-wrap gap-4 font-bold text-xs pt-2">
+              <div className="flex flex-wrap gap-3 sm:gap-4 font-bold text-xs pt-2">
                 <label className="flex items-center gap-1.5 cursor-pointer">
                   <input
                     type="checkbox"
@@ -503,16 +516,25 @@ export default function ProductsManagementPage() {
                   <span>On Sale Promotion</span>
                 </label>
               </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  className="w-full bg-brand-red hover:bg-brand-redDark text-white py-3.5 rounded-2xl font-black text-sm shadow-lg shine-effect transition"
-                >
-                  {editingId ? 'Update Product Details' : 'Save & Publish Product'}
-                </button>
-              </div>
             </form>
+
+            {/* Sticky Modal Footer */}
+            <div className="border-t border-brand-border px-4 py-3 sm:px-6 sm:py-4 bg-gray-50/90 flex items-center gap-2 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-bold text-xs hover:bg-gray-100 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="product-form"
+                className="flex-1 bg-brand-red hover:bg-brand-redDark text-white py-2.5 sm:py-3 rounded-xl font-black text-xs sm:text-sm shadow-md shine-effect transition text-center"
+              >
+                {editingId ? 'Update Product Details' : 'Save & Publish Product'}
+              </button>
+            </div>
           </div>
         </div>
       )}

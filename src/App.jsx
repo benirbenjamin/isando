@@ -37,10 +37,12 @@ import ReportsPage from './pages/ReportsPage';
 import AuditLogPage from './pages/AuditLogPage';
 import SettingsPage from './pages/SettingsPage';
 import ProfilePage from './pages/ProfilePage';
+import { ToastContainer } from './utils/toast';
 
 export default function App() {
   return (
     <AuthProvider>
+      <ToastContainer />
       <Routes>
         {/* PUBLIC CUSTOMER-FACING WEBSITE */}
         <Route element={<PublicLayout />}>

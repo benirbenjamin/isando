@@ -119,28 +119,42 @@ export async function uploadFile(fileBuffer, originalName, mimeType = 'image/jpe
     googleAccounts = [];
   }
 
-  let vercelBlobUrl = null;
-  let googleDriveUrl = null;
-
-  // 1. Try Vercel Blob Bucket
-  if (vercelToken) {
-    try {
-      console.log('🌐 Uploading to Vercel Cloud Blob Bucket...');
-      vercelBlobUrl = await uploadToVercelBlob(fileBuffer, originalName);
-      console.log('✅ Successfully uploaded to Vercel Blob Bucket:', vercelBlobUrl);
-    } catch (err) {
-      console.warn(`⚠️ Vercel Blob bucket upload failed: ${err.message}`);
+  // Include direct environment variables if provided in Vercel project configuration
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_REFRESH_TOKEN) {
+    const hasEnvAcc = googleAccounts.some(a => a.clientId === process.env.GOOGLE_CLIENT_ID);
+    if (!hasEnvAcc) {
+      googleAccounts.unshift({
+        name: 'Primary Cloud Drive (Vercel Env)',
+        clientId: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        refreshToken: process.env.GOOGLE_REFRESH_TOKEN,
+        folderId: process.env.GOOGLE_DRIVE_FOLDER_ID || null,
+      });
     }
   }
 
-  // 2. Try Google Drive (Failover or Secondary Mirror)
+  let vercelBlobUrl = null;
+  let googleDriveUrl = null;
+
+  // 1. Try Vercel Blob Bucket - If limit reached, DO NOT FORCE; catch and proceed to Drive
+  if (vercelToken) {
+    try {
+      console.log('🌐 Attempting upload to Vercel Cloud Blob Bucket...');
+      vercelBlobUrl = await uploadToVercelBlob(fileBuffer, originalName);
+      console.log('✅ Successfully uploaded to Vercel Blob Bucket:', vercelBlobUrl);
+    } catch (err) {
+      console.warn(`⚠️ Vercel Blob bucket upload limit reached or failed (${err.message}). Don't force; failing over to Google Drive...`);
+    }
+  }
+
+  // 2. Try Google Drive (Failover when bucket limit reached, or secondary mirror)
   if (googleAccounts.length > 0) {
     for (const acc of googleAccounts) {
       try {
         console.log(`🌐 Uploading to Google Drive Account: [${acc.name}]...`);
         googleDriveUrl = await uploadToGoogleDriveAccount(fileBuffer, originalName, acc);
         console.log(`✅ Successfully uploaded to Google Drive [${acc.name}]:`, googleDriveUrl);
-        break; // Successfully uploaded to at least one Google Drive account
+        break; // Successfully uploaded to Google Drive account
       } catch (err) {
         console.warn(`⚠️ Google Drive [${acc.name}] upload failed: ${err.message}`);
       }
