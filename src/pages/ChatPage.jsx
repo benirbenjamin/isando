@@ -2,10 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { 
   MessageSquare, Send, Users, CheckCheck, Eye, Plus, 
-  ArrowLeft, UserPlus, Search, Calendar, ChevronDown, Check
+  ArrowLeft, UserPlus, Search, Calendar, ChevronDown, Check, X
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { playMessageSound } from '../utils/sound';
 
 export default function ChatPage() {
   const { user } = useAuth();
@@ -19,6 +20,10 @@ export default function ChatPage() {
   const [inputText, setInputText] = useState('');
   const [workers, setWorkers] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Message Info modal state (who read, who received / delivered)
+  const [selectedMessageForInfo, setSelectedMessageForInfo] = useState(null);
+  const prevTotalUnreadRef = useRef(null);
 
   // Modals
   const [showNewChatModal, setShowNewChatModal] = useState(false);
@@ -56,6 +61,13 @@ export default function ChatPage() {
       const convs = res.conversations || [];
       setConversations(convs);
 
+      // Track total unread to play message sound when new messages arrive
+      const totalUnread = convs.reduce((sum, c) => sum + (c.unreadCount || (c.hasUnread ? 1 : 0)), 0);
+      if (prevTotalUnreadRef.current !== null && totalUnread > prevTotalUnreadRef.current) {
+        playMessageSound();
+      }
+      prevTotalUnreadRef.current = totalUnread;
+
       if (autoSelectFirst && !activeConvId) {
         if (activeConvParam) {
           setActiveConvId(activeConvParam);
@@ -78,6 +90,15 @@ export default function ChatPage() {
       const newMessages = res.messages || [];
       
       const countChanged = newMessages.length !== prevMessagesLengthRef.current;
+
+      // Play message chime when a new message from someone else arrives in active chat
+      if (!isManualSend && prevMessagesLengthRef.current > 0 && newMessages.length > prevMessagesLengthRef.current) {
+        const lastMsg = newMessages[newMessages.length - 1];
+        if (lastMsg && lastMsg.senderId !== user?.id) {
+          playMessageSound();
+        }
+      }
+
       prevMessagesLengthRef.current = newMessages.length;
 
       setMessages(newMessages);
@@ -97,6 +118,8 @@ export default function ChatPage() {
   useEffect(() => {
     loadConversations(true);
     api.get('/users').then(res => setWorkers(res.users || [])).catch(() => {});
+    const convInterval = setInterval(() => loadConversations(false), 4000);
+    return () => clearInterval(convInterval);
   }, []);
 
   useEffect(() => {
@@ -224,7 +247,7 @@ export default function ChatPage() {
 
   return (
     <>
-      <div className="bg-white border border-brand-border rounded-2xl md:rounded-3xl overflow-hidden shadow-lg flex flex-col h-[calc(100dvh-5.5rem)] md:h-[calc(100dvh-6rem)]">
+      <div className="bg-white border border-brand-border rounded-2xl md:rounded-3xl overflow-hidden shadow-lg flex flex-col h-[calc(100dvh-7.5rem)] sm:h-[calc(100dvh-6rem)] md:h-[calc(100dvh-5.5rem)]">
         <div className="flex-1 grid grid-cols-1 md:grid-cols-3 min-h-0 h-full overflow-hidden">
         
         {/* ============================================================== */}
@@ -299,8 +322,11 @@ export default function ChatPage() {
                     </p>
                   </div>
 
-                  {conv.hasUnread && (
-                    <span className="w-2.5 h-2.5 rounded-full bg-brand-red flex-shrink-0 animate-pulse mt-1" />
+                  {/* Dynamic Unread Badge Pill */}
+                  {(conv.unreadCount > 0 || conv.hasUnread) && (
+                    <span className="bg-brand-red text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm flex-shrink-0 flex items-center justify-center min-w-[20px] animate-pulse">
+                      {conv.unreadCount || 1}
+                    </span>
                   )}
                 </button>
               );
@@ -315,85 +341,87 @@ export default function ChatPage() {
       <div className={`md:col-span-2 flex flex-col h-full min-h-0 overflow-hidden bg-white ${activeConvId ? 'flex' : 'hidden md:flex'}`}>
         {activeConvId ? (
           <>
-            {/* Header */}
-            <div className="p-3.5 sm:p-4 border-b border-brand-border bg-white flex justify-between items-center shadow-xs flex-shrink-0">
-              <div className="flex items-center gap-2 min-w-0">
-                {/* Mobile Back Button: Switches back to user/thread list */}
-                <button
-                  onClick={() => {
-                    setActiveConvId(null);
-                    setSearchParams({});
-                  }}
-                  className="md:hidden flex items-center gap-1 text-xs font-black text-brand-dark px-2.5 py-1.5 rounded-xl bg-brand-soft hover:bg-brand-yellow transition mr-1 flex-shrink-0"
-                  title="Back to conversation list"
-                >
-                  <ArrowLeft className="w-4 h-4 text-brand-red" />
-                  <span>Chats</span>
-                </button>
+            {/* Sticky Header Wrapper: Back button and chat details stay permanently pinned */}
+            <div className="sticky top-0 z-20 bg-white flex-shrink-0 border-b border-brand-border shadow-xs">
+              <div className="p-3 sm:p-4 flex justify-between items-center bg-white">
+                <div className="flex items-center gap-2 min-w-0">
+                  {/* Sticky Mobile Back Button: Always visible and easily accessible */}
+                  <button
+                    onClick={() => {
+                      setActiveConvId(null);
+                      setSearchParams({});
+                    }}
+                    className="md:hidden flex items-center gap-1.5 text-xs font-black text-brand-dark px-3 py-1.5 rounded-xl bg-brand-yellow hover:bg-brand-yellowDark shadow-xs transition mr-1 flex-shrink-0"
+                    title="Back to conversation list"
+                  >
+                    <ArrowLeft className="w-4 h-4 text-brand-dark" />
+                    <span>Chats</span>
+                  </button>
 
-                <div className="truncate">
-                  <div className="flex items-center gap-2">
-                    <b className="text-sm sm:text-base font-extrabold text-brand-dark truncate block">
-                      {activeConvDetail?.title || 'Chat Thread'}
-                    </b>
-                    {activeConvDetail?.type === 'EVENT' && (
-                      <span className="hidden sm:inline-block bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-md uppercase">
-                        🎉 Event Room
-                      </span>
-                    )}
+                  <div className="truncate">
+                    <div className="flex items-center gap-2">
+                      <b className="text-sm sm:text-base font-extrabold text-brand-dark truncate block">
+                        {activeConvDetail?.title || 'Chat Thread'}
+                      </b>
+                      {activeConvDetail?.type === 'EVENT' && (
+                        <span className="hidden sm:inline-block bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-md uppercase">
+                          🎉 Event Room
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[11px] text-gray-400 font-semibold block truncate">
+                      {activeConvDetail?.members?.length || 0} Members: {activeConvDetail?.members?.map(m => m.user?.fullName).filter(Boolean).join(', ')}
+                    </span>
                   </div>
-                  <span className="text-[11px] text-gray-400 font-semibold block truncate">
-                    {activeConvDetail?.members?.length || 0} Members: {activeConvDetail?.members?.map(m => m.user?.fullName).filter(Boolean).join(', ')}
-                  </span>
+                </div>
+
+                {/* Action Buttons: Add Receivers / Event Command Center */}
+                <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                  {activeConvDetail?.type === 'EVENT' && activeConvDetail.relatedEntityId && (
+                    <Link
+                      to={`/events/${activeConvDetail.relatedEntityId}`}
+                      className="bg-brand-yellow hover:bg-brand-yellowDark text-brand-dark font-black text-xs px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm"
+                      title="View Event Command Center"
+                    >
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Command Center</span>
+                    </Link>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      setSelectedReceivers([]);
+                      setContactSearch('');
+                      setShowAddMembersModal(true);
+                    }}
+                    className="bg-gray-100 hover:bg-gray-200 text-brand-dark font-extrabold text-xs px-3 py-1.5 rounded-xl transition flex items-center gap-1"
+                    title="Add more receivers to chat"
+                  >
+                    <UserPlus className="w-3.5 h-3.5 text-brand-red" />
+                    <span className="hidden sm:inline">Add Receivers</span>
+                  </button>
                 </div>
               </div>
 
-              {/* Action Buttons: Add Receivers / Event Command Center */}
-              <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                {activeConvDetail?.type === 'EVENT' && activeConvDetail.relatedEntityId && (
-                  <Link
-                    to={`/events/${activeConvDetail.relatedEntityId}`}
-                    className="bg-brand-yellow hover:bg-brand-yellowDark text-brand-dark font-black text-xs px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm"
-                    title="View Event Command Center"
-                  >
-                    <Calendar className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Command Center</span>
-                  </Link>
-                )}
-
-                <button
-                  onClick={() => {
-                    setSelectedReceivers([]);
-                    setContactSearch('');
-                    setShowAddMembersModal(true);
-                  }}
-                  className="bg-gray-100 hover:bg-gray-200 text-brand-dark font-extrabold text-xs px-3 py-1.5 rounded-xl transition flex items-center gap-1"
-                  title="Add more receivers to chat"
-                >
-                  <UserPlus className="w-3.5 h-3.5 text-brand-red" />
-                  <span className="hidden sm:inline">Add Receivers</span>
-                </button>
-              </div>
+              {/* Event Header Banner (if EVENT room) */}
+              {activeConvDetail?.type === 'EVENT' && (
+                <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border-t border-emerald-100 px-4 py-2 flex items-center justify-between text-xs text-emerald-900">
+                  <div className="flex items-center gap-2 truncate">
+                    <span className="text-base">🎉</span>
+                    <span className="font-black text-emerald-800">Official Event Coordination Channel</span>
+                    <span className="text-gray-400 hidden sm:inline">&bull; Real-time duty coordination for event crew</span>
+                  </div>
+                  {activeConvDetail.relatedEntityId && (
+                    <Link
+                      to={`/events/${activeConvDetail.relatedEntityId}`}
+                      className="text-[11px] font-extrabold text-emerald-700 hover:underline flex-shrink-0 ml-2"
+                    >
+                      View Status &rarr;
+                    </Link>
+                  )}
+                </div>
+              )}
             </div>
-
-            {/* Event Header Banner (if EVENT room) */}
-            {activeConvDetail?.type === 'EVENT' && (
-              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-emerald-200 px-4 py-2.5 flex items-center justify-between text-xs text-emerald-900 flex-shrink-0">
-                <div className="flex items-center gap-2 truncate">
-                  <span className="text-base">🎉</span>
-                  <span className="font-black text-emerald-800">Official Event Coordination Channel</span>
-                  <span className="text-gray-400 hidden sm:inline">&bull; Real-time duty coordination for event crew</span>
-                </div>
-                {activeConvDetail.relatedEntityId && (
-                  <Link
-                    to={`/events/${activeConvDetail.relatedEntityId}`}
-                    className="text-[11px] font-extrabold text-emerald-700 hover:underline flex-shrink-0 ml-2"
-                  >
-                    View Status &rarr;
-                  </Link>
-                )}
-              </div>
-            )}
 
             {/* Messages Scroll Area */}
             <div 
@@ -413,26 +441,35 @@ export default function ChatPage() {
                       <div className="text-[10px] text-gray-400 font-bold mb-0.5">
                         {isMe ? 'You' : (msg.sender?.fullName || 'User')}
                       </div>
-                      <div className={`max-w-md p-3.5 rounded-2xl text-xs shadow-sm ${
+                      <div 
+                        onClick={() => setSelectedMessageForInfo(msg)}
+                        title="Click to view who saw & received this message"
+                        className={`max-w-md p-3.5 rounded-2xl text-xs shadow-sm cursor-pointer hover:ring-2 hover:ring-brand-yellow/60 transition active:scale-[0.99] ${
                         isMe 
                           ? 'bg-brand-dark text-white rounded-br-none' 
                           : 'bg-white border border-brand-border text-brand-dark rounded-bl-none'
                       }`}>
                         <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>
-                        <div className="text-[9px] opacity-60 text-right mt-1 font-mono">
-                          {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        <div className="text-[9px] opacity-60 text-right mt-1 font-mono flex items-center justify-end gap-1">
+                          <span>{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          {isMe && <CheckCheck className="w-3 h-3 text-emerald-400 inline" />}
                         </div>
                       </div>
 
-                      {/* Read / Seen Tracking */}
-                      <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-400 font-semibold">
+                      {/* Read / Seen Tracking (Clickable) */}
+                      <div 
+                        onClick={() => setSelectedMessageForInfo(msg)}
+                        title="Click to see who read & received this message"
+                        className="mt-1 flex items-center gap-1 text-[10px] text-gray-400 font-semibold cursor-pointer hover:text-brand-dark hover:underline transition"
+                      >
                         <Eye className="w-3 h-3 text-emerald-600" />
-                        <span>{msg.seenSummary || 'Delivered'}</span>
+                        <span>{msg.seenSummary || `${msg.seenByCount || 1}/${activeConvDetail?.members?.length || 1}`} seen</span>
                         {Array.isArray(msg.seenUsers) && msg.seenUsers.length > 0 && (
                           <span className="hidden sm:inline text-gray-400 font-normal">
                             ({msg.seenUsers.map(u => u?.name || u?.fullName).filter(Boolean).join(', ')})
                           </span>
                         )}
+                        <span className="text-[9px] text-gray-400 ml-1 opacity-70">&bull; Tap for details</span>
                       </div>
                     </div>
                   );
@@ -669,6 +706,124 @@ export default function ChatPage() {
                 className="flex-1 py-2.5 rounded-xl bg-brand-red hover:bg-brand-redDark disabled:opacity-40 text-white text-xs font-extrabold shadow transition"
               >
                 Add {selectedReceivers.length > 0 ? `(${selectedReceivers.length})` : ''} to Chat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MESSAGE INFO / DELIVERY STATUS MODAL (Read & Delivered tracking) */}
+      {/* ============================================================== */}
+      {selectedMessageForInfo && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-brand-border overflow-hidden animate-pop flex flex-col max-h-[85vh]">
+            {/* Modal Header */}
+            <div className="p-4 bg-brand-soft border-b border-brand-border flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckCheck className="w-5 h-5 text-emerald-600" />
+                <div>
+                  <h3 className="font-extrabold text-sm text-brand-dark">Message Details & Seen Status</h3>
+                  <span className="text-[10px] text-gray-500">Who read and who received this message</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedMessageForInfo(null)}
+                className="p-1 rounded-full text-gray-400 hover:text-brand-dark hover:bg-gray-200 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Message Bubble Preview */}
+            <div className="p-4 bg-gray-50 border-b border-gray-100 text-xs">
+              <div className="text-[10px] text-gray-400 font-bold mb-1 flex items-center justify-between">
+                <span>Sender: {selectedMessageForInfo.sender?.fullName || 'User'}</span>
+                <span>
+                  {new Date(selectedMessageForInfo.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} &bull; {new Date(selectedMessageForInfo.createdAt).toLocaleDateString()}
+                </span>
+              </div>
+              <div className="p-3 bg-white rounded-xl border border-gray-200 text-brand-dark leading-relaxed whitespace-pre-wrap font-medium shadow-xs">
+                {selectedMessageForInfo.text}
+              </div>
+            </div>
+
+            {/* Delivery & Read Lists */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs divide-y divide-gray-100">
+              {/* Read / Seen By */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-extrabold text-xs text-emerald-800 flex items-center gap-1.5">
+                    <Eye className="w-4 h-4 text-emerald-600" />
+                    <span>Read by ({selectedMessageForInfo.readBy?.length || selectedMessageForInfo.seenUsers?.length || 0})</span>
+                  </span>
+                  <span className="text-[10px] text-gray-400 font-mono">
+                    {selectedMessageForInfo.readBy?.length || selectedMessageForInfo.seenUsers?.length || 0} of {activeConvDetail?.members?.length || selectedMessageForInfo.seenByTotal || 0}
+                  </span>
+                </div>
+
+                {(selectedMessageForInfo.readBy?.length > 0 || selectedMessageForInfo.seenUsers?.length > 0) ? (
+                  <div className="space-y-2">
+                    {(selectedMessageForInfo.readBy || selectedMessageForInfo.seenUsers || []).map((u, i) => (
+                      <div key={u.id || i} className="p-2.5 bg-emerald-50/70 border border-emerald-100 rounded-xl flex items-center justify-between">
+                        <div>
+                          <b className="block text-brand-dark text-xs">{u.name || u.fullName || 'User'}</b>
+                          <span className="text-[10px] text-gray-500 font-semibold">{u.role || 'Staff member'}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] font-bold text-emerald-700 block">Read</span>
+                          <span className="text-[9px] text-gray-400 font-mono">
+                            {u.readAt ? new Date(u.readAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Seen'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-gray-400 italic py-1">No other member has read this message yet.</p>
+                )}
+              </div>
+
+              {/* Delivered To (Received in chat but not yet read) */}
+              <div className="pt-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-extrabold text-xs text-gray-700 flex items-center gap-1.5">
+                    <Check className="w-4 h-4 text-gray-500" />
+                    <span>Delivered to ({selectedMessageForInfo.deliveredTo?.length || 0})</span>
+                  </span>
+                  <span className="text-[10px] text-gray-400 font-mono">
+                    Pending read
+                  </span>
+                </div>
+
+                {selectedMessageForInfo.deliveredTo?.length > 0 ? (
+                  <div className="space-y-2">
+                    {selectedMessageForInfo.deliveredTo.map((u, i) => (
+                      <div key={u.id || i} className="p-2.5 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-between">
+                        <div>
+                          <b className="block text-brand-dark text-xs">{u.name || 'User'}</b>
+                          <span className="text-[10px] text-gray-500 font-semibold">{u.role || 'Staff member'}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] font-bold text-gray-500 block">Delivered</span>
+                          <span className="text-[9px] text-gray-400 font-mono">Unread</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-gray-400 italic py-1">All members in this conversation have seen this message!</p>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-3 bg-brand-soft border-t border-brand-border text-center">
+              <button
+                onClick={() => setSelectedMessageForInfo(null)}
+                className="w-full bg-brand-dark hover:bg-black text-white font-extrabold text-xs py-2.5 rounded-xl transition shadow"
+              >
+                Done
               </button>
             </div>
           </div>

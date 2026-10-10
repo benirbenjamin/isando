@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Menu, Bell, ExternalLink, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
+import { playNotificationSound } from '../utils/sound';
+import { showToast } from '../utils/toast';
 
 export default function HeaderDashboard({ setMobileOpen }) {
   const { user } = useAuth();
@@ -11,14 +13,46 @@ export default function HeaderDashboard({ setMobileOpen }) {
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [activeReminder, setActiveReminder] = useState(null);
+  const seenNotifIdsRef = useRef(new Set());
+  const isInitialLoadRef = useRef(true);
 
   useEffect(() => {
+    // Request desktop notification permission if supported
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+
     async function loadNotifications() {
       try {
         const res = await api.get('/notifications');
         const notifs = res.notifications || [];
         setUnreadCount(res.unreadCount || 0);
         setNotifications(notifs);
+
+        if (isInitialLoadRef.current) {
+          notifs.forEach(n => seenNotifIdsRef.current.add(n.id));
+          isInitialLoadRef.current = false;
+        } else {
+          // Detect brand new notifications that just arrived
+          const newUnreadNotifs = notifs.filter(n => !n.isRead && !seenNotifIdsRef.current.has(n.id));
+          if (newUnreadNotifs.length > 0) {
+            playNotificationSound();
+
+            newUnreadNotifs.forEach(n => {
+              seenNotifIdsRef.current.add(n.id);
+              showToast(`${n.title} • ${n.message}`, 'info', 6000);
+
+              if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                try {
+                  new window.Notification(n.title, {
+                    body: n.message,
+                    icon: '/logo.png'
+                  });
+                } catch {}
+              }
+            });
+          }
+        }
 
         // Check for urgent upcoming event reminder (starting in 10 min)
         const urgentEventReminder = notifs.find(n => !n.isRead && (n.type === 'EVENT_REMINDER' || n.title?.includes('10 Min')));
@@ -30,7 +64,7 @@ export default function HeaderDashboard({ setMobileOpen }) {
       }
     }
     loadNotifications();
-    const interval = setInterval(loadNotifications, 15000); // Polling every 15s
+    const interval = setInterval(loadNotifications, 8000); // 8s polling
     return () => clearInterval(interval);
   }, []);
 

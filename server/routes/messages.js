@@ -96,7 +96,7 @@ router.get('/conversations', authenticateToken, async (req, res) => {
       orderBy: { conversation: { updatedAt: 'desc' } }
     });
 
-    const conversations = members.map(m => {
+    const conversations = await Promise.all(members.map(async (m) => {
       const conv = m.conversation;
       const lastMessage = conv.messages[0] || null;
       const otherMembers = conv.members.filter(cm => cm.userId !== req.user.id);
@@ -105,6 +105,15 @@ router.get('/conversations', authenticateToken, async (req, res) => {
       if (!title && conv.type === 'DIRECT') {
         title = otherMembers.map(om => om.user.fullName).join(', ') || 'Private Chat';
       }
+
+      // Exact count of unread messages sent by others after user's last read timestamp
+      const unreadCount = await prisma.message.count({
+        where: {
+          conversationId: conv.id,
+          senderId: { not: req.user.id },
+          createdAt: { gt: m.lastReadAt || new Date(0) }
+        }
+      });
 
       return {
         id: conv.id,
@@ -116,9 +125,10 @@ router.get('/conversations', authenticateToken, async (req, res) => {
         members: conv.members,
         lastMessage,
         lastReadAt: m.lastReadAt,
-        hasUnread: lastMessage ? new Date(lastMessage.createdAt) > new Date(m.lastReadAt) : false,
+        hasUnread: unreadCount > 0,
+        unreadCount,
       };
-    });
+    }));
 
     return res.json({ conversations });
   } catch (err) {
@@ -308,7 +318,7 @@ router.get('/conversations/:id/messages', authenticateToken, async (req, res) =>
         include: {
           sender: { select: { id: true, fullName: true, profileImage: true } },
           reads: {
-            include: { user: { select: { id: true, fullName: true } } }
+            include: { user: { select: { id: true, fullName: true, profileImage: true, role: { select: { name: true } } } } }
           }
         },
         orderBy: { createdAt: 'asc' },
@@ -321,20 +331,40 @@ router.get('/conversations/:id/messages', authenticateToken, async (req, res) =>
       create: { conversationId, userId: req.user.id }
     });
 
+    const allMembers = conversation?.members || [];
+
     const formattedMessages = messages.map(msg => {
-      const seenUsers = msg.reads.map(r => ({
-        id: r.user.id,
-        name: r.user.fullName,
+      const readUserIds = new Set(msg.reads.map(r => r.userId));
+
+      const readBy = msg.reads.map(r => ({
+        id: r.user?.id,
+        name: r.user?.fullName || 'User',
+        role: r.user?.role?.name || 'Staff',
+        profileImage: r.user?.profileImage,
         readAt: r.readAt,
       }));
+
+      // Members who received the message in thread but have not yet read/opened it
+      const deliveredTo = allMembers
+        .filter(m => m.userId !== msg.senderId && !readUserIds.has(m.userId))
+        .map(m => ({
+          id: m.user?.id,
+          name: m.user?.fullName || 'User',
+          role: m.user?.role?.name || 'Staff',
+          profileImage: m.user?.profileImage,
+          lastActive: m.lastReadAt,
+        }));
 
       return {
         ...msg,
         attachments: JSON.parse(msg.attachments || '[]'),
-        seenByCount: seenUsers.length,
-        seenByTotal: conversation.members.length,
-        seenSummary: `${seenUsers.length}/${conversation.members.length}`,
-        seenUsers,
+        readBy,
+        deliveredTo,
+        seenByCount: readBy.length,
+        deliveredCount: deliveredTo.length,
+        seenByTotal: allMembers.length,
+        seenSummary: `${readBy.length}/${allMembers.length}`,
+        seenUsers: readBy,
       };
     });
 
@@ -401,6 +431,31 @@ async function executeSendMessage(req, res, conversationId, text, attachments) {
       }
     }).catch(() => {});
 
+    // Create In-App Notifications for other conversation members
+    const otherMembers = await prisma.conversationMember.findMany({
+      where: {
+        conversationId,
+        userId: { not: req.user.id }
+      }
+    });
+
+    const senderName = req.user.fullName || 'Teammate';
+    const previewText = (text || (Array.isArray(attachments) && attachments.length ? 'Sent an attachment' : 'New message')).substring(0, 100);
+
+    for (const m of otherMembers) {
+      await prisma.notification.create({
+        data: {
+          userId: m.userId,
+          type: 'MESSAGE',
+          title: `New message from ${senderName}`,
+          message: previewText,
+          relatedEntityId: conversationId,
+          entityType: 'conversation',
+          isRead: false,
+        }
+      }).catch(() => {});
+    }
+
     try {
       const io = req.app.get('io');
       if (io) {
@@ -408,6 +463,19 @@ async function executeSendMessage(req, res, conversationId, text, attachments) {
           ...message,
           attachments: JSON.parse(message.attachments || '[]'),
         });
+        for (const m of otherMembers) {
+          io.to(`user_${m.userId}`).emit('notification', {
+            type: 'MESSAGE',
+            title: `New message from ${senderName}`,
+            message: previewText,
+            relatedEntityId: conversationId,
+            entityType: 'conversation',
+          });
+          io.to(`user_${m.userId}`).emit('new_message', {
+            ...message,
+            attachments: JSON.parse(message.attachments || '[]'),
+          });
+        }
       }
     } catch {}
 

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Phone, Mail, MapPin, Clock, MessageCircle, Send, CheckCircle2 } from 'lucide-react';
 import { api, getWhatsAppLink } from '../services/api';
 
 export default function ContactPage() {
+  const [settings, setSettings] = useState({});
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -13,6 +14,18 @@ export default function ContactPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    let isMounted = true;
+    api.get('/settings')
+      .then(res => {
+        if (isMounted && res?.settings) {
+          setSettings(res.settings);
+        }
+      })
+      .catch(() => {});
+    return () => { isMounted = false; };
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -143,25 +156,33 @@ export default function ContactPage() {
 
         {/* Right: Contact Cards & WhatsApp */}
         <div className="space-y-4">
-          <div className="bg-brand-soft border border-brand-border rounded-2xl p-5 flex items-center gap-4">
+          <a
+            href={getWhatsAppLink(settings.whatsapp_number || '250786639945', `Hello ${settings.company_name || 'Romantic T Solutions'}, I need assistance.`)}
+            target="_blank"
+            rel="noreferrer"
+            className="bg-brand-soft border border-brand-border rounded-2xl p-5 flex items-center gap-4 hover:shadow-md transition block"
+          >
             <div className="w-12 h-12 rounded-xl bg-[#25D366] text-white flex items-center justify-center flex-shrink-0">
               <MessageCircle className="w-6 h-6" />
             </div>
             <div>
               <b className="block text-sm text-brand-dark">WhatsApp Instant Chat</b>
-              <span className="text-xs text-gray-600">+250 786 639 945</span>
+              <span className="text-xs text-emerald-700 font-bold">+{settings.whatsapp_number || '250786639945'}</span>
             </div>
-          </div>
+          </a>
 
-          <div className="bg-brand-soft border border-brand-border rounded-2xl p-5 flex items-center gap-4">
+          <a
+            href={`tel:${(settings.company_phone || '+250 786 639 945').replace(/[^0-9+]/g, '')}`}
+            className="bg-brand-soft border border-brand-border rounded-2xl p-5 flex items-center gap-4 hover:shadow-md transition block"
+          >
             <div className="w-12 h-12 rounded-xl bg-brand-yellow text-brand-dark flex items-center justify-center flex-shrink-0">
               <Phone className="w-6 h-6" />
             </div>
             <div>
               <b className="block text-sm text-brand-dark">Phone Line</b>
-              <span className="text-xs text-gray-600">0786 639 945</span>
+              <span className="text-xs text-gray-700 font-medium">{settings.company_phone || '0786 639 945'}</span>
             </div>
-          </div>
+          </a>
 
           <div className="bg-brand-soft border border-brand-border rounded-2xl p-5 flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-brand-red text-white flex items-center justify-center flex-shrink-0">
@@ -169,7 +190,7 @@ export default function ContactPage() {
             </div>
             <div>
               <b className="block text-sm text-brand-dark">Location</b>
-              <span className="text-xs text-gray-600">Kigali, Rwanda</span>
+              <span className="text-xs text-gray-700 font-medium">{settings.company_address || 'Kigali, Rwanda'}</span>
             </div>
           </div>
 
@@ -180,7 +201,7 @@ export default function ContactPage() {
               Get instant answers regarding product availability, sizes, or event dates.
             </p>
             <a
-              href={getWhatsAppLink('250786639945', 'Hello Romantic T Solutions, I need assistance.')}
+              href={getWhatsAppLink(settings.whatsapp_number || '250786639945', `Hello ${settings.company_name || 'Romantic T Solutions'}, I need assistance.`)}
               target="_blank"
               rel="noreferrer"
               className="w-full bg-white text-[#128C7E] hover:bg-gray-100 py-3 px-4 rounded-xl font-black text-xs text-center shadow transition flex items-center justify-center gap-2"

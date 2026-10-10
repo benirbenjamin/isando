@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Save, Mail, HardDrive, Plus, Trash2, CheckCircle2, Info } from 'lucide-react';
+import { Settings, Save, Mail, HardDrive, Plus, Trash2, CheckCircle2, Info, Share2, Globe, Phone } from 'lucide-react';
 import { api } from '../services/api';
+import { showToast } from '../utils/toast';
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState({});
@@ -56,22 +57,22 @@ export default function SettingsPage() {
           google_drive_accounts: JSON.stringify(googleAccounts),
         }
       });
-      alert('System settings saved successfully!');
+      showToast('System settings saved successfully!', 'success');
     } catch (err) {
-      alert(err.message);
+      showToast(err.message || 'Failed to save settings', 'error');
     } finally {
       setSaving(false);
     }
   };
 
   const handleTestEmail = async () => {
-    if (!testEmail) return alert('Please enter a test recipient email address');
+    if (!testEmail) return showToast('Please enter a test recipient email address', 'error');
     setTestingEmail(true);
     try {
       const res = await api.post('/settings/test-email', { testEmail });
-      alert(`Test Email Result (${res.result?.provider}): ${res.message}`);
+      showToast(`Test Email Result (${res.result?.provider || 'SMTP'}): ${res.message}`, 'success');
     } catch (err) {
-      alert('Test Email failed: ' + err.message);
+      showToast('Test Email failed: ' + err.message, 'error');
     } finally {
       setTestingEmail(false);
     }
@@ -79,7 +80,7 @@ export default function SettingsPage() {
 
   const handleAddDriveAccount = () => {
     if (!newDriveAcc.clientId || !newDriveAcc.refreshToken) {
-      return alert('Client ID and Refresh Token are required for Google Drive account');
+      return showToast('Client ID and Refresh Token are required for Google Drive account', 'error');
     }
     setGoogleAccounts([...googleAccounts, newDriveAcc]);
     setNewDriveAcc({ name: '', clientId: '', clientSecret: '', refreshToken: '', folderId: '' });
@@ -131,6 +132,17 @@ export default function SettingsPage() {
             </div>
 
             <div>
+              <label className="font-bold text-brand-dark block mb-1">Phone Line (Direct Calls)</label>
+              <input
+                type="text"
+                placeholder="+250 786 639 945"
+                value={settings.company_phone || ''}
+                onChange={(e) => handleChange('company_phone', e.target.value)}
+                className="w-full p-2.5 bg-brand-soft border border-brand-border rounded-xl font-bold text-brand-dark"
+              />
+            </div>
+
+            <div>
               <label className="font-bold text-brand-dark block mb-1">WhatsApp Business Number</label>
               <input
                 type="text"
@@ -150,14 +162,95 @@ export default function SettingsPage() {
               />
             </div>
 
-            <div>
-              <label className="font-bold text-brand-dark block mb-1">Physical Address</label>
+            <div className="sm:col-span-2">
+              <label className="font-bold text-brand-dark block mb-1">Physical Address / Headquarters</label>
               <input
                 type="text"
                 value={settings.company_address || 'Kigali, Rwanda'}
                 onChange={(e) => handleChange('company_address', e.target.value)}
                 className="w-full p-2.5 bg-brand-soft border border-brand-border rounded-xl"
               />
+            </div>
+          </div>
+
+          {/* Social Media Links */}
+          <div className="pt-4 border-t space-y-3">
+            <div>
+              <h4 className="font-extrabold text-sm text-brand-dark flex items-center gap-1.5">
+                <Share2 className="w-4 h-4 text-brand-yellow" />
+                <span>Social Media Links & Profiles</span>
+              </h4>
+              <p className="text-[11px] text-gray-500">
+                Configure your social media channels displayed dynamically across the footer and contact sections
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+              <div>
+                <label className="font-bold text-gray-700 block mb-1">Instagram URL / Handle</label>
+                <input
+                  type="text"
+                  placeholder="https://instagram.com/romantictsolutions"
+                  value={settings.social_instagram || ''}
+                  onChange={(e) => handleChange('social_instagram', e.target.value)}
+                  className="w-full p-2.5 bg-brand-soft border border-brand-border rounded-xl font-mono text-[11px]"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-gray-700 block mb-1">Facebook URL</label>
+                <input
+                  type="text"
+                  placeholder="https://facebook.com/romantictsolutions"
+                  value={settings.social_facebook || ''}
+                  onChange={(e) => handleChange('social_facebook', e.target.value)}
+                  className="w-full p-2.5 bg-brand-soft border border-brand-border rounded-xl font-mono text-[11px]"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-gray-700 block mb-1">Twitter / X URL</label>
+                <input
+                  type="text"
+                  placeholder="https://x.com/romantictsolutions"
+                  value={settings.social_twitter || ''}
+                  onChange={(e) => handleChange('social_twitter', e.target.value)}
+                  className="w-full p-2.5 bg-brand-soft border border-brand-border rounded-xl font-mono text-[11px]"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-gray-700 block mb-1">LinkedIn URL</label>
+                <input
+                  type="text"
+                  placeholder="https://linkedin.com/company/romantictsolutions"
+                  value={settings.social_linkedin || ''}
+                  onChange={(e) => handleChange('social_linkedin', e.target.value)}
+                  className="w-full p-2.5 bg-brand-soft border border-brand-border rounded-xl font-mono text-[11px]"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-gray-700 block mb-1">YouTube URL</label>
+                <input
+                  type="text"
+                  placeholder="https://youtube.com/@romantictsolutions"
+                  value={settings.social_youtube || ''}
+                  onChange={(e) => handleChange('social_youtube', e.target.value)}
+                  className="w-full p-2.5 bg-brand-soft border border-brand-border rounded-xl font-mono text-[11px]"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-gray-700 block mb-1">TikTok URL</label>
+                <input
+                  type="text"
+                  placeholder="https://tiktok.com/@romantictsolutions"
+                  value={settings.social_tiktok || ''}
+                  onChange={(e) => handleChange('social_tiktok', e.target.value)}
+                  className="w-full p-2.5 bg-brand-soft border border-brand-border rounded-xl font-mono text-[11px]"
+                />
+              </div>
             </div>
           </div>
 
