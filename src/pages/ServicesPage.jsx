@@ -22,6 +22,7 @@ export default function ServicesPage() {
   const [services, setServices] = useState([]);
   const [divisions, setDivisions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const categoryScrollRef = useRef(null);
 
@@ -42,25 +43,27 @@ export default function ServicesPage() {
     loadDivisions();
   }, []);
 
+  const fetchServices = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      let query = `/services?limit=100`;
+      if (currentDivision) query += `&division=${encodeURIComponent(currentDivision)}`;
+      if (currentCategory) query += `&category=${encodeURIComponent(currentCategory)}`;
+      if (currentSearch) query += `&search=${encodeURIComponent(currentSearch)}`;
+
+      const res = await api.get(query);
+      setServices(res.services || []);
+    } catch (err) {
+      console.error('Failed to load services:', err);
+      setError(err?.response?.data?.error || err.message || 'Failed to connect to database');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // 2. Fetch Services filtered by dynamic division, dynamic category, and search
   useEffect(() => {
-    async function fetchServices() {
-      setLoading(true);
-      try {
-        let query = `/services?limit=100`;
-        if (currentDivision) query += `&division=${encodeURIComponent(currentDivision)}`;
-        if (currentCategory) query += `&category=${encodeURIComponent(currentCategory)}`;
-        if (currentSearch) query += `&search=${encodeURIComponent(currentSearch)}`;
-
-        const res = await api.get(query);
-        setServices(res.services || []);
-      } catch (err) {
-        console.error('Failed to load services:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-
     fetchServices();
   }, [currentDivision, currentCategory, currentSearch]);
 
@@ -346,6 +349,20 @@ export default function ServicesPage() {
           {[1, 2, 3, 4, 5, 6].map(n => (
             <div key={n} className="bg-gray-100 rounded-2xl aspect-video" />
           ))}
+        </div>
+      ) : error ? (
+        <div className="text-center py-16 bg-red-50 rounded-3xl border border-red-200 space-y-3 px-4">
+          <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto text-xl font-bold">⚠️</div>
+          <p className="text-base font-bold text-gray-900">Database Connection Error</p>
+          <p className="text-xs text-gray-600 max-w-md mx-auto">
+            Unable to reach the database server. If the database was sleeping or paused, it may take a moment to resume.
+          </p>
+          <button
+            onClick={fetchServices}
+            className="inline-flex items-center gap-2 bg-brand-yellow text-brand-dark font-extrabold text-xs px-5 py-2.5 rounded-full shadow hover:bg-brand-yellowDark transition"
+          >
+            <RefreshCw className="w-3.5 h-3.5" /> Retry Connection
+          </button>
         </div>
       ) : services.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
