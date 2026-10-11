@@ -449,6 +449,17 @@ async function main() {
       features: JSON.stringify(['Event concept design', 'Budget management', 'Vendor selection & management']),
       isFeatured: true,
     },
+    {
+      name: 'Luxury Bridal Convoy & Car Rentals',
+      description: 'Chauffeured luxury bridal cars, decorated ribbons, executive fuel included.',
+      division: 'Wedding Services',
+      category: 'Cars & MC',
+      images: JSON.stringify(['https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=70']),
+      location: 'Kigali & Provinces',
+      startingPrice: 150000,
+      features: JSON.stringify(['Chauffeured driver', 'Ribbon decoration', 'Fuel included']),
+      isFeatured: true,
+    },
   ];
 
   for (const s of servicesData) {

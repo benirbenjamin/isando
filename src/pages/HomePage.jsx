@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ChevronLeft, ChevronRight, Sparkles, MessageCircle, HeartHandshake,
-  Briefcase, ArrowRight, Utensils, Shirt, Flame, Camera, Car,
-  Zap, Target, Shield, CheckCircle, Eye, Award
+  Briefcase, ArrowRight, Utensils, Shirt, Flame, Camera, Car
 } from 'lucide-react';
 import { api, getWhatsAppLink, getImageUrl, getImageBackupUrl } from '../services/api';
 import ProductCard from '../components/ProductCard';
@@ -87,100 +86,6 @@ const DEFAULT_FEATURED_SLIDES = [
   }
 ];
 
-const DEFAULT_FOOD_PRODUCTS = [
-  {
-    id: 'demo-food-1',
-    name: 'Inyange Fresh Juice Pack (12x 500ml Assorted)',
-    description: '100% Natural Rwandan fruit juice - Apple, Mango, Passion and Orange flavors.',
-    regularPrice: 18000,
-    salePrice: 15000,
-    stockQuantity: 45,
-    images: ['https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=600&q=70'],
-    category: { name: 'Natural Juices' },
-    businessDivision: { name: 'Food & Beverages' },
-  },
-  {
-    id: 'demo-food-2',
-    name: 'Premium Tanzanian Super Rice (25kg Bag)',
-    description: 'Grade-A aromatic long grain rice, wholesale delivery across Kigali and Rwanda.',
-    regularPrice: 42000,
-    salePrice: 38500,
-    stockQuantity: 20,
-    images: ['https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=600&q=70'],
-    category: { name: 'Rice & Grains' },
-    businessDivision: { name: 'Food & Beverages' },
-  },
-  {
-    id: 'demo-food-3',
-    name: 'Crate Soft Drinks & Sparkling Water (24 Bottles)',
-    description: 'Assorted Coca-Cola, Fanta, Sprite and mineral water for weddings & celebrations.',
-    regularPrice: 16000,
-    salePrice: 14000,
-    stockQuantity: 80,
-    images: ['https://images.unsplash.com/photo-1527661591475-527312dd65f5?auto=format&fit=crop&w=600&q=70'],
-    category: { name: 'Beverages' },
-    businessDivision: { name: 'Food & Beverages' },
-  },
-  {
-    id: 'demo-food-4',
-    name: 'Gourmet Event Catering Grocery Supply Pack',
-    description: 'Bulk cooking oils, seasonings, pasta and fresh spices for celebrations.',
-    regularPrice: 65000,
-    salePrice: 58000,
-    stockQuantity: 15,
-    images: ['https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=70'],
-    category: { name: 'Catering Supplies' },
-    businessDivision: { name: 'Food & Beverages' },
-  }
-];
-
-const DEFAULT_CLOTHES_PRODUCTS = [
-  {
-    id: 'demo-cloth-1',
-    name: 'Royal Rwandan Silk Mushanana Attire',
-    description: 'Traditional Rwandan bridal & ceremonial attire with delicate golden lace embroidery.',
-    regularPrice: 140000,
-    salePrice: 120000,
-    stockQuantity: 12,
-    images: ['https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=600&q=70'],
-    category: { name: 'Traditional Wear' },
-    businessDivision: { name: 'Clothes & Shoes' },
-  },
-  {
-    id: 'demo-cloth-2',
-    name: 'Italian Handcrafted Men Leather Oxford Shoes',
-    description: 'Premium genuine leather dress shoes for grooms, business executives & galas.',
-    regularPrice: 75000,
-    salePrice: 65000,
-    stockQuantity: 18,
-    images: ['https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=600&q=70'],
-    category: { name: 'Men Shoes' },
-    businessDivision: { name: 'Clothes & Shoes' },
-  },
-  {
-    id: 'demo-cloth-3',
-    name: 'Tailored 3-Piece Executive Wedding Tuxedo',
-    description: 'Modern slim-fit navy blue suit with satin lapels and tailored vest.',
-    regularPrice: 180000,
-    salePrice: 150000,
-    stockQuantity: 8,
-    images: ['https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=600&q=70'],
-    category: { name: 'Suits & Blazers' },
-    businessDivision: { name: 'Clothes & Shoes' },
-  },
-  {
-    id: 'demo-cloth-4',
-    name: 'Crystal Bridal Stiletto Heels & Evening Shoes',
-    description: 'Sparkling wedding heels with cushioned soles for all-day ceremony comfort.',
-    regularPrice: 55000,
-    salePrice: 48000,
-    stockQuantity: 14,
-    images: ['https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&w=600&q=70'],
-    category: { name: 'Women Shoes' },
-    businessDivision: { name: 'Clothes & Shoes' },
-  }
-];
-
 export default function HomePage() {
   const [divisions, setDivisions] = useState([]);
   const [allProducts, setAllProducts] = useState([]);
@@ -191,8 +96,8 @@ export default function HomePage() {
   const [weddingServices, setWeddingServices] = useState([]);
   const [carRentalServices, setCarRentalServices] = useState([]);
   const [consultancyServices, setConsultancyServices] = useState([]);
-  const [foodProducts, setFoodProducts] = useState(DEFAULT_FOOD_PRODUCTS);
-  const [clothesProducts, setClothesProducts] = useState(DEFAULT_CLOTHES_PRODUCTS);
+  const [foodProducts, setFoodProducts] = useState([]);
+  const [clothesProducts, setClothesProducts] = useState([]);
   const [specialOffers, setSpecialOffers] = useState([]);
   const [currentSlide, setCurrentSlide] = useState(0);
 
@@ -254,142 +159,74 @@ export default function HomePage() {
 
         const dynamicFeatured = [...featP, ...featS];
         if (dynamicFeatured.length > 0) {
-          setFeaturedItems([...dynamicFeatured, ...DEFAULT_FEATURED_SLIDES.slice(0, 2)]);
+          setFeaturedItems(dynamicFeatured);
         } else {
-          setFeaturedItems(DEFAULT_FEATURED_SLIDES);
+          // If no items are flagged as featured, feature real services and products from the catalog
+          const realSlides = [
+            ...srvs.slice(0, 3).map(s => ({
+              id: s.id,
+              _type: 'service',
+              targetUrl: `/services/${s.id}`,
+              name: s.name,
+              badge: s.businessDivision?.name || 'Service',
+              divisionName: s.businessDivision?.name || 'Service',
+              description: s.description,
+              image: getImageUrl(s.featuredImage || (Array.isArray(s.images) ? s.images[0] : null)),
+              ctaText: 'Explore Service',
+            })),
+            ...prods.slice(0, 3).map(p => ({
+              id: p.id,
+              _type: 'product',
+              targetUrl: `/products/${p.id}`,
+              name: p.name,
+              badge: p.businessDivision?.name || 'Product',
+              divisionName: p.businessDivision?.name || 'Product',
+              description: p.description,
+              image: getImageUrl(p.featuredImage || (Array.isArray(p.images) ? p.images[0] : null)),
+              ctaText: 'View Product Details',
+            }))
+          ];
+
+          if (realSlides.length > 0) {
+            setFeaturedItems(realSlides);
+          } else {
+            setFeaturedItems(DEFAULT_FEATURED_SLIDES);
+          }
         }
 
         // 1. Photography & Videography (first)
         const photoVideo = srvs.filter(s => {
           const c = (s.category?.name || '').toLowerCase();
           const n = (s.name || '').toLowerCase();
-          return c.includes('photo') || c.includes('video') || n.includes('photo') || n.includes('video');
+          const d = (s.businessDivision?.name || '').toLowerCase();
+          return c.includes('photo') || c.includes('video') || n.includes('photo') || n.includes('video') || d.includes('photo') || d.includes('video');
         });
-        if (photoVideo.length > 0) {
-          setPhotoVideoServices(photoVideo);
-        } else {
-          setPhotoVideoServices([
-            {
-              id: 'demo-pv-1',
-              name: 'Cinematic Wedding & Event Videography',
-              description: '4K Multi-camera coverage, drone aerial shots, highlights teaser & full master film.',
-              startingPrice: 350000,
-              location: 'Kigali & Across Rwanda',
-              businessDivision: { name: 'Wedding Services' },
-              category: { name: 'Videography' },
-              images: ['https://images.unsplash.com/photo-1537633552985-df8429e8048b?auto=format&fit=crop&w=800&q=70'],
-            },
-            {
-              id: 'demo-pv-2',
-              name: 'VIP Portrait & Event Photography',
-              description: 'Professional photographers, edited digital gallery, printed photobook albums.',
-              startingPrice: 200000,
-              location: 'Kigali & Nationwide',
-              businessDivision: { name: 'Wedding Services' },
-              category: { name: 'Photography' },
-              images: ['https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=70'],
-            }
-          ]);
-        }
+        setPhotoVideoServices(photoVideo);
 
-        // 3. Wedding Car Rentals
+        // 2. Wedding Car Rentals
         const carRentals = srvs.filter(s => {
           const c = (s.category?.name || '').toLowerCase();
           const n = (s.name || '').toLowerCase();
-          return c.includes('car') || n.includes('car') || c.includes('rental') || n.includes('limo');
+          const d = (s.businessDivision?.name || '').toLowerCase();
+          return c.includes('car') || n.includes('car') || c.includes('rental') || d.includes('car') || d.includes('rental') || n.includes('limo');
         });
-        if (carRentals.length > 0) {
-          setCarRentalServices(carRentals);
-        } else {
-          setCarRentalServices([
-            {
-              id: 'demo-car-1',
-              name: 'Luxury Bridal Convoy & Mercedes Benz V-Class',
-              description: 'Chauffeured luxury bridal cars, decorated ribbons, executive fuel included.',
-              startingPrice: 150000,
-              location: 'Kigali & Provinces',
-              businessDivision: { name: 'Wedding Services' },
-              category: { name: 'Cars & MC' },
-              images: ['https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=70'],
-            },
-            {
-              id: 'demo-car-2',
-              name: 'Range Rover & V8 VIP Bridal Limousine',
-              description: 'Prestigious wedding transport for bride & groom with professional uniformed chauffeur.',
-              startingPrice: 250000,
-              location: 'Kigali & Countrywide',
-              businessDivision: { name: 'Wedding Services' },
-              category: { name: 'Cars & MC' },
-              images: ['https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800&q=70'],
-            }
-          ]);
-        }
+        setCarRentalServices(carRentals);
 
-        // 2. Wedding Services (Decor, Catering, Protocol, DJ/MC)
+        // 3. Wedding Services (Decor, Catering, Protocol, DJ/MC)
         const weddingGeneral = srvs.filter(s => {
           const isPhoto = photoVideo.some(p => p.id === s.id);
           const isCar = carRentals.some(c => c.id === s.id);
-          const isWeddingDiv = s.businessDivision?.slug === 'wedding-services' || (s.businessDivision?.name || '').includes('Wedding');
+          const isWeddingDiv = s.businessDivision?.slug === 'wedding-services' || (s.businessDivision?.name || '').toLowerCase().includes('wedding');
           return isWeddingDiv && !isPhoto && !isCar;
         });
-        if (weddingGeneral.length > 0) {
-          setWeddingServices(weddingGeneral);
-        } else {
-          setWeddingServices([
-            {
-              id: 'demo-decor',
-              name: 'Grand Wedding Decoration & Floral Styling',
-              description: 'Banquet hall decor, bride & groom stage styling, floral arches & mood lighting ambience.',
-              startingPrice: 500000,
-              location: 'Kigali & Across Rwanda',
-              businessDivision: { name: 'Wedding Services' },
-              category: { name: 'Decoration' },
-              images: ['https://images.unsplash.com/photo-1519225421980-715cb0215aed?auto=format&fit=crop&w=800&q=70'],
-            },
-            {
-              id: 'demo-catering',
-              name: 'Gourmet Wedding Catering & Buffet',
-              description: 'Exquisite multi-course buffet experience, welcome drinks, waitstaff & cocktail tables.',
-              startingPrice: 350000,
-              location: 'Kigali Nationwide',
-              businessDivision: { name: 'Wedding Services' },
-              category: { name: 'Catering' },
-              images: ['https://images.unsplash.com/photo-1555244162-803834f70033?auto=format&fit=crop&w=800&q=70'],
-            }
-          ]);
-        }
+        setWeddingServices(weddingGeneral);
 
         // 4. Consultancy Services
         const consultancy = srvs.filter(s =>
           s.businessDivision?.slug === 'consultancy-services' ||
           (s.businessDivision?.name || '').toLowerCase().includes('consult')
         );
-        if (consultancy.length > 0) {
-          setConsultancyServices(consultancy);
-        } else {
-          setConsultancyServices([
-            {
-              id: 'demo-cons-1',
-              name: 'Corporate Event Strategy & Protocol Advisory',
-              description: 'End-to-end event planning, stakeholder protocol, vendor management & scheduling.',
-              startingPrice: 200000,
-              location: 'Kigali & Regional',
-              businessDivision: { name: 'Consultancy Services' },
-              category: { name: 'Event Consultancy' },
-              images: ['https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=800&q=70'],
-            },
-            {
-              id: 'demo-cons-2',
-              name: 'SME Business & Financial Growth Strategy',
-              description: 'Strategic market positioning, financial controls, procurement analysis & operational planning.',
-              startingPrice: 300000,
-              location: 'Kigali & Online',
-              businessDivision: { name: 'Consultancy Services' },
-              category: { name: 'Business Strategy' },
-              images: ['https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=800&q=70'],
-            }
-          ]);
-        }
+        setConsultancyServices(consultancy);
 
         // 5. Food & Beverages
         const food = prods.filter(p => {
@@ -400,11 +237,7 @@ export default function HomePage() {
             catStr.includes('food') || catStr.includes('beverage') || catStr.includes('juice') || catStr.includes('drink') || catStr.includes('rice') ||
             nameStr.includes('juice') || nameStr.includes('rice') || nameStr.includes('drink');
         });
-        if (food.length > 0) {
-          setFoodProducts(food);
-        } else {
-          setFoodProducts(DEFAULT_FOOD_PRODUCTS);
-        }
+        setFoodProducts(food);
 
         // 6. Clothes & Shoes (Comes Last)
         const clothes = prods.filter(p => {
@@ -415,11 +248,7 @@ export default function HomePage() {
             catStr.includes('clothe') || catStr.includes('shoe') || catStr.includes('dress') || catStr.includes('shirt') || catStr.includes('suit') ||
             nameStr.includes('shoe') || nameStr.includes('dress') || nameStr.includes('suit') || nameStr.includes('heel') || nameStr.includes('mushanana');
         });
-        if (clothes.length > 0) {
-          setClothesProducts(clothes);
-        } else {
-          setClothesProducts(DEFAULT_CLOTHES_PRODUCTS);
-        }
+        setClothesProducts(clothes);
 
         // Special Offers
         const offers = prods.filter(p => p.discountPercentage > 0 || (p.salePrice && p.salePrice < p.regularPrice));
@@ -463,43 +292,43 @@ export default function HomePage() {
       {/* =========================================================================
           DYNAMIC CATEGORIES HORIZONTAL SCROLLER
           ========================================================================= */}
-      <section className="max-w-7xl mx-auto px-4 pt-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-2xl sm:text-3xl font-black text-brand-dark relative inline-block pb-2">
-              Explore Categories
-              <span className="absolute bottom-0 left-0 w-12 h-1 bg-brand-yellow rounded-full" />
-            </h2>
-            <p className="text-xs sm:text-sm text-brand-muted mt-0.5">
-              Shop dynamic catalog of products and book professional services
-            </p>
-          </div>
-          {categories.length > 4 && (
-            <div className="flex gap-1.5">
-              <button
-                onClick={() => scrollContainer('categories-scroller', 'left')}
-                className="p-2 border border-brand-border rounded-full bg-white hover:bg-brand-yellow text-brand-dark shadow-sm transition"
-                aria-label="Previous categories"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => scrollContainer('categories-scroller', 'right')}
-                className="p-2 border border-brand-border rounded-full bg-white hover:bg-brand-yellow text-brand-dark shadow-sm transition"
-                aria-label="Next categories"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
+      {categories.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 pt-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-black text-brand-dark relative inline-block pb-2">
+                Explore Categories
+                <span className="absolute bottom-0 left-0 w-12 h-1 bg-brand-yellow rounded-full" />
+              </h2>
+              <p className="text-xs sm:text-sm text-brand-muted mt-0.5">
+                Shop dynamic catalog of products and book professional services
+              </p>
             </div>
-          )}
-        </div>
+            {categories.length > 4 && (
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => scrollContainer('categories-scroller', 'left')}
+                  className="p-2 border border-brand-border rounded-full bg-white hover:bg-brand-yellow text-brand-dark shadow-sm transition"
+                  aria-label="Previous categories"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => scrollContainer('categories-scroller', 'right')}
+                  className="p-2 border border-brand-border rounded-full bg-white hover:bg-brand-yellow text-brand-dark shadow-sm transition"
+                  aria-label="Next categories"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
 
-        <div
-          id="categories-scroller"
-          className="flex gap-3 sm:gap-4 overflow-x-auto pb-3 scrollbar-none snap-x"
-        >
-          {categories.length > 0 ? (
-            categories.map((cat) => {
+          <div
+            id="categories-scroller"
+            className="flex gap-3 sm:gap-4 overflow-x-auto pb-3 scrollbar-none snap-x"
+          >
+            {categories.map((cat) => {
               const isService = cat.type === 'SERVICE';
               const targetUrl = isService
                 ? `/services?category=${encodeURIComponent(cat.slug || cat.name)}`
@@ -527,41 +356,10 @@ export default function HomePage() {
                   </span>
                 </Link>
               );
-            })
-          ) : (
-            [
-              { name: 'Photography', type: 'SERVICE', div: 'Wedding Services' },
-              { name: 'Videography', type: 'SERVICE', div: 'Wedding Services' },
-              { name: 'Wedding Services', type: 'SERVICE', div: 'Wedding Services' },
-              { name: 'Car Rentals', type: 'SERVICE', div: 'Wedding Services' },
-              { name: 'Consultancy', type: 'SERVICE', div: 'Consultancy Services' },
-              { name: 'Food & Beverages', type: 'PRODUCT', div: 'Food & Beverages' },
-              { name: 'Clothes & Shoes', type: 'PRODUCT', div: 'Clothes & Shoes' },
-            ].map((cat, i) => (
-              <Link
-                key={i}
-                to={cat.type === 'SERVICE' ? `/services?category=${encodeURIComponent(cat.name)}` : `/products?category=${encodeURIComponent(cat.name)}`}
-                className="group flex-shrink-0 w-36 sm:w-44 bg-white border border-brand-border hover:border-brand-yellow rounded-2xl p-4 shadow-sm hover:shadow-lg transition-all duration-300 text-center flex flex-col items-center justify-between snap-start"
-              >
-                <div className="w-14 h-14 rounded-2xl bg-brand-soft flex items-center justify-center text-2xl mb-2.5">
-                  {getCategoryEmoji(cat.name)}
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-xs sm:text-sm text-brand-dark group-hover:text-brand-red transition line-clamp-1">
-                    {cat.name}
-                  </h3>
-                  <span className="text-[10px] text-gray-500 font-semibold block mt-0.5">
-                    {cat.div}
-                  </span>
-                </div>
-                <span className="mt-2 text-[10px] font-black text-brand-dark bg-brand-soft px-2 py-0.5 rounded-full">
-                  Browse &rarr;
-                </span>
-              </Link>
-            ))
-          )}
-        </div>
-      </section>
+            })}
+          </div>
+        </section>
+      )}
 
       {/* =========================================================================
           BEAUTIFUL LONG SLIDING FEATURED SPOTLIGHT BANNER (ALWAYS VISIBLE & AUTO-SLIDING)
@@ -664,25 +462,17 @@ export default function HomePage() {
       {/* =========================================================================
           DYNAMIC ORDER-AWARE BUSINESS DIVISION SECTIONS
           ========================================================================= */}
-      {(divisions && divisions.length > 0 ? divisions : [
-        { id: 'def-car', name: 'Car rentals', description: 'Chauffeured Mercedes-Benz, V8 Land Cruisers, VIP Range Rovers, and bridal convoy coaches' },
-        { id: 'def-clothes', name: 'Clothes & Shoes', description: 'Men & women shoes, dresses, suits, traditional Rwandan attire & sneakers' },
-        { id: 'def-consult', name: 'Consultancy Services', description: 'Expert business strategy, corporate event planning, financial planning & executive workshops' },
-        { id: 'def-food', name: 'Food & Beverages', description: 'Fresh natural juices, crate soft drinks, wholesale rice & catering food supplies' },
-        { id: 'def-wedding', name: 'Wedding Services', description: 'Exquisite venue decoration, catering & buffet, sound & lighting, MCs, cakes & protocol' },
-      ]).map((div, index) => {
+      {(divisions || []).map((div) => {
         const nameLower = (div.name || '').toLowerCase();
 
         // 1. Photography & Videography
         if (nameLower.includes('photo') || nameLower.includes('video')) {
+          if (photoVideoServices.length === 0) return null;
           return (
             <section key={div.id || 'photo'} className="max-w-7xl mx-auto px-4">
               <div className="bg-gradient-to-br from-amber-50/70 via-white to-amber-100/40 border border-brand-yellow/40 rounded-3xl p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <span className="bg-brand-red text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider inline-block mb-1">
-                      #{index + 1} SIGNATURE SERVICE
-                    </span>
                     <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
                       <Camera className="w-6 h-6 text-brand-red" />
                       <span>📸 {div.name}</span>
@@ -695,14 +485,16 @@ export default function HomePage() {
                     <Link to={`/services?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
                       View All {div.name} &rarr;
                     </Link>
-                    <div className="flex gap-1">
-                      <button onClick={() => scrollContainer('photovideo-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => scrollContainer('photovideo-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
+                    {photoVideoServices.length > 3 && (
+                      <div className="flex gap-1">
+                        <button onClick={() => scrollContainer('photovideo-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Previous">
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => scrollContainer('photovideo-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Next">
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -720,14 +512,12 @@ export default function HomePage() {
 
         // 2. Wedding Services (General)
         if (nameLower.includes('wedding')) {
+          if (weddingServices.length === 0) return null;
           return (
             <section key={div.id || 'wedding'} className="max-w-7xl mx-auto px-4">
               <div className="border border-brand-border rounded-3xl p-6 bg-white shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <span className="bg-brand-yellow text-brand-dark text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider inline-block mb-1">
-                      #{index + 1} FULL EVENT COVERAGE
-                    </span>
                     <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
                       <HeartHandshake className="w-6 h-6 text-brand-red" />
                       <span>💍 {div.name}</span>
@@ -740,14 +530,16 @@ export default function HomePage() {
                     <Link to={`/services?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
                       View {div.name} &rarr;
                     </Link>
-                    <div className="flex gap-1">
-                      <button onClick={() => scrollContainer('wedding-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => scrollContainer('wedding-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
+                    {weddingServices.length > 3 && (
+                      <div className="flex gap-1">
+                        <button onClick={() => scrollContainer('wedding-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Previous">
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => scrollContainer('wedding-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Next">
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -765,14 +557,12 @@ export default function HomePage() {
 
         // 3. Car rentals
         if (nameLower.includes('car') || nameLower.includes('rental') || nameLower.includes('transport')) {
+          if (carRentalServices.length === 0) return null;
           return (
             <section key={div.id || 'car'} className="max-w-7xl mx-auto px-4">
               <div className="bg-slate-50 border border-brand-border rounded-3xl p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <span className="bg-emerald-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider inline-block mb-1">
-                      #{index + 1} LUXURY FLEET
-                    </span>
                     <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
                       <Car className="w-6 h-6 text-brand-red" />
                       <span>🚗 {div.name}</span>
@@ -782,17 +572,19 @@ export default function HomePage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Link to={`/services?category=Cars%20%26%20MC`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
+                    <Link to={`/services?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
                       View Fleet &rarr;
                     </Link>
-                    <div className="flex gap-1">
-                      <button onClick={() => scrollContainer('cars-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => scrollContainer('cars-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
+                    {carRentalServices.length > 3 && (
+                      <div className="flex gap-1">
+                        <button onClick={() => scrollContainer('cars-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Previous">
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => scrollContainer('cars-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Next">
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -810,14 +602,12 @@ export default function HomePage() {
 
         // 4. Consultancy Services
         if (nameLower.includes('consult')) {
+          if (consultancyServices.length === 0) return null;
           return (
             <section key={div.id || 'consult'} className="max-w-7xl mx-auto px-4">
               <div className="border border-brand-border rounded-3xl p-6 bg-white shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <span className="bg-brand-dark text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider inline-block mb-1">
-                      #{index + 1} PROFESSIONAL ADVISORY
-                    </span>
                     <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
                       <Briefcase className="w-6 h-6 text-brand-yellow" />
                       <span>💼 {div.name}</span>
@@ -830,14 +620,16 @@ export default function HomePage() {
                     <Link to={`/services?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
                       View All {div.name} &rarr;
                     </Link>
-                    <div className="flex gap-1">
-                      <button onClick={() => scrollContainer('consultancy-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => scrollContainer('consultancy-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
+                    {consultancyServices.length > 3 && (
+                      <div className="flex gap-1">
+                        <button onClick={() => scrollContainer('consultancy-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Previous">
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => scrollContainer('consultancy-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Next">
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -855,14 +647,12 @@ export default function HomePage() {
 
         // 5. Food & Beverages
         if (nameLower.includes('food') || nameLower.includes('beverage') || nameLower.includes('drink')) {
+          if (foodProducts.length === 0) return null;
           return (
             <section key={div.id || 'food'} className="max-w-7xl mx-auto px-4">
               <div className="border border-brand-border rounded-3xl p-6 bg-white shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <span className="bg-amber-500 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider inline-block mb-1">
-                      #{index + 1} WHOLESALE & RETAIL
-                    </span>
                     <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
                       <Utensils className="w-6 h-6 text-brand-yellow" />
                       <span>🍔 {div.name}</span>
@@ -875,14 +665,16 @@ export default function HomePage() {
                     <Link to={`/products?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
                       View All {div.name} &rarr;
                     </Link>
-                    <div className="flex gap-1">
-                      <button onClick={() => scrollContainer('food-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => scrollContainer('food-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
+                    {foodProducts.length > 3 && (
+                      <div className="flex gap-1">
+                        <button onClick={() => scrollContainer('food-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Previous">
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => scrollContainer('food-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Next">
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -900,14 +692,12 @@ export default function HomePage() {
 
         // 6. Clothes & Shoes
         if (nameLower.includes('cloth') || nameLower.includes('shoe') || nameLower.includes('fashion') || nameLower.includes('apparel')) {
+          if (clothesProducts.length === 0) return null;
           return (
             <section key={div.id || 'clothes'} className="max-w-7xl mx-auto px-4">
               <div className="border border-brand-border rounded-3xl p-6 bg-white shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <span className="bg-purple-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider inline-block mb-1">
-                      #{index + 1} FASHION & FOOTWEAR
-                    </span>
                     <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
                       <Shirt className="w-6 h-6 text-brand-yellow" />
                       <span>👗 {div.name}</span>
@@ -920,14 +710,16 @@ export default function HomePage() {
                     <Link to={`/products?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
                       View All {div.name} &rarr;
                     </Link>
-                    <div className="flex gap-1">
-                      <button onClick={() => scrollContainer('clothes-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => scrollContainer('clothes-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
+                    {clothesProducts.length > 3 && (
+                      <div className="flex gap-1">
+                        <button onClick={() => scrollContainer('clothes-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Previous">
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => scrollContainer('clothes-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Next">
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -954,9 +746,6 @@ export default function HomePage() {
             <div className="border border-brand-border rounded-3xl p-6 bg-white shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <span className="bg-brand-dark text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider inline-block mb-1">
-                    #{index + 1} DIVISION
-                  </span>
                   <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
                     <Sparkles className="w-6 h-6 text-brand-yellow" />
                     <span>{div.name}</span>
@@ -1020,90 +809,6 @@ export default function HomePage() {
           </div>
         </section>
       )}
-
-      {/* =========================================================================
-          ABOUT ROMANTIC T SOLUTIONS & CORE VALUES SECTION
-          ========================================================================= */}
-      <section className="max-w-7xl mx-auto px-4 space-y-8">
-        <div className="bg-gradient-to-br from-brand-soft via-white to-amber-50/40 border border-brand-border rounded-3xl p-6 sm:p-10 shadow-sm space-y-8">
-          <div className="text-center max-w-4xl mx-auto space-y-3">
-            <span className="bg-brand-yellow text-brand-dark text-xs font-black px-4 py-1.5 rounded-full uppercase tracking-wider inline-block">
-              ABOUT ROMANTIC T SOLUTIONS
-            </span>
-            <h2 className="text-2xl sm:text-4xl font-black text-brand-dark leading-tight">
-              Your Trusted Partner in Business Solutions!!!
-            </h2>
-            <p className="text-xs sm:text-sm text-gray-700 leading-relaxed font-medium">
-              <em>
-                Romantic T Solutions is an e-commerce platform,all in one service provider based in Kigali,Rwanda.Romantic T Solutions Provides a wide range of professional services integrating Photography&Videography,Catering Equipment Rentals, Luxury Car rentals,Food &Beverages,IT Supplies and Consultancy services For Individuals, Businesses,Private and Public institutions!!!
-              </em>
-            </p>
-          </div>
-
-          {/* Lightning Speed Delivery Callout */}
-          <div className="bg-gradient-to-r from-brand-red to-rose-700 text-white rounded-2xl p-4 flex items-center justify-center gap-3 shadow-md max-w-2xl mx-auto text-center">
-            <Zap className="w-5 h-5 text-brand-yellow fill-brand-yellow flex-shrink-0 animate-bounce" />
-            <span className="text-xs sm:text-sm font-black italic">
-              Make order you will be served within 24hours at Lightning Speed!!!
-            </span>
-          </div>
-
-          {/* Vision & Mission */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
-            <div className="bg-white border-2 border-brand-yellow rounded-2xl p-5 shadow-2xs space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="bg-amber-100 text-brand-dark p-1.5 rounded-lg">
-                  <Eye className="w-4 h-4 text-brand-dark" />
-                </span>
-                <span className="text-[11px] font-black uppercase tracking-wider text-amber-800">
-                  Vision statement
-                </span>
-              </div>
-              <p className="text-xs text-gray-700 font-semibold leading-relaxed">
-                To be a champion in High-value event solutions ,ICT Solutions, Agri-Food Supply ,and Consultancy services.
-              </p>
-            </div>
-
-            <div className="bg-white border-2 border-brand-red/30 rounded-2xl p-5 shadow-2xs space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="bg-rose-100 text-brand-red p-1.5 rounded-lg">
-                  <Target className="w-4 h-4 text-brand-red" />
-                </span>
-                <span className="text-[11px] font-black uppercase tracking-wider text-brand-red">
-                  Mission statement
-                </span>
-              </div>
-              <p className="text-xs text-gray-700 font-semibold leading-relaxed">
-                To provide High Quality Product access and Consultancy to every Rwandan.
-              </p>
-            </div>
-          </div>
-
-          {/* Core Values */}
-          <div className="max-w-5xl mx-auto space-y-4">
-            <h3 className="text-center text-xs font-black text-brand-red uppercase tracking-wider">
-              Core Values
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-              {[
-                { n: '1', t: 'Professionalism', d: 'We implement what learnt with respect and integrity', c: 'bg-brand-red text-white' },
-                { n: '2', t: 'Accountability', d: 'We are decisive and Responsible', c: 'bg-brand-yellow text-brand-dark' },
-                { n: '3', t: 'Honesty', d: 'We always seek to do what is Right', c: 'bg-emerald-600 text-white' },
-                { n: '4', t: 'Customer Expectations', d: 'We always aim to satisfy our costomers', c: 'bg-blue-600 text-white' },
-                { n: '5', t: 'Innovative', d: 'We Solve it differently', c: 'bg-purple-600 text-white' },
-              ].map(v => (
-                <div key={v.n} className="bg-white border border-brand-border rounded-2xl p-4 shadow-2xs space-y-1.5">
-                  <span className={`w-6 h-6 rounded-lg ${v.c} font-black text-[11px] flex items-center justify-center`}>
-                    {v.n}
-                  </span>
-                  <h4 className="font-extrabold text-xs text-brand-dark">{v.t}</h4>
-                  <p className="text-[11px] text-gray-500 leading-snug">{v.d}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* =========================================================================
           WHATSAPP QUICK ORDER BANNER
