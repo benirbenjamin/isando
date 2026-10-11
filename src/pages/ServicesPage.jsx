@@ -6,11 +6,11 @@ import ServiceCard from '../components/ServiceCard';
 
 function getDivisionEmoji(name = '') {
   const n = (name || '').toLowerCase();
-  if (n.includes('car') || n.includes('rental') || n.includes('convoy')) return '🚗';
+  if (n.includes('cater') || n.includes('dish') || n.includes('buffet') || n.includes('kitchen') || n.includes('chafing')) return '🍽️';
+  if (n.includes('car') || n.includes('vehic') || n.includes('convoy') || n.includes('limo') || n.includes('fleet') || n.includes('transport')) return '🚗';
   if (n.includes('cloth') || n.includes('shoe') || n.includes('dress') || n.includes('fashion')) return '👟';
   if (n.includes('food') || n.includes('beverage') || n.includes('juice') || n.includes('drink')) return '🍔';
   if (n.includes('wedding') || n.includes('decor')) return '💍';
-  if (n.includes('cater')) return '🍽️';
   if (n.includes('consult')) return '💼';
   if (n.includes('photo') || n.includes('video')) return '📸';
   if (n.includes('tech') || n.includes('it') || n.includes('suppl')) return '💻';
@@ -77,14 +77,20 @@ export default function ServicesPage() {
     );
   });
 
-  // Filter divisions to those providing professional services (or all available)
+  // Filter divisions to those providing professional services (excluding pure product divisions)
   const serviceDivisions = divisions.filter(d => {
     const n = d.name.toLowerCase();
+    const isPureProduct = (n.includes('food') || n.includes('beverage') || 
+                          n.includes('cloth') || n.includes('shoe') || 
+                          n.includes('it supply') || n.includes('it supplies') || 
+                          n.includes('computer')) && (!d._count || d._count.services === 0);
+    if (isPureProduct) return false;
+
     const hasServiceCategories = Array.isArray(d.categories) && d.categories.some(c => c.type === 'SERVICE');
     const hasServiceCount = d._count && d._count.services > 0;
     const isServiceKeyword = n.includes('photo') || n.includes('video') || n.includes('consult') || 
                              n.includes('wedding') || n.includes('rental') || n.includes('cater') || 
-                             n.includes('event') || n.includes('service');
+                             n.includes('car') || n.includes('event') || n.includes('service');
     return hasServiceCategories || hasServiceCount || isServiceKeyword || d.id === activeDivObj?.id;
   });
 

@@ -20,10 +20,11 @@ function getCategoryEmoji(name = '') {
   if (n.includes('photo')) return '📸';
   if (n.includes('video')) return '🎥';
   if (n.includes('decor')) return '💐';
-  if (n.includes('cater')) return '🍽️';
-  if (n.includes('car') || n.includes('mc')) return '🚗';
-  if (n.includes('business')) return '📈';
+  if (n.includes('cater') || n.includes('dish') || n.includes('buffet') || n.includes('chafing') || n.includes('tableware')) return '🍽️';
+  if (n.includes('car') || n.includes('vehic') || n.includes('limo') || n.includes('convoy') || n.includes('fleet') || n.includes('transport') || n.includes('mc')) return '🚗';
+  if (n.includes('business') || n.includes('consult')) return '📈';
   if (n.includes('event')) return '🎯';
+  if (n.includes('it') || n.includes('tech') || n.includes('comput') || n.includes('suppl') || n.includes('laptop')) return '💻';
   return '✨';
 }
 
@@ -95,9 +96,11 @@ export default function HomePage() {
   const [photoVideoServices, setPhotoVideoServices] = useState([]);
   const [weddingServices, setWeddingServices] = useState([]);
   const [carRentalServices, setCarRentalServices] = useState([]);
+  const [cateringServices, setCateringServices] = useState([]);
   const [consultancyServices, setConsultancyServices] = useState([]);
   const [foodProducts, setFoodProducts] = useState([]);
   const [clothesProducts, setClothesProducts] = useState([]);
+  const [itProducts, setItProducts] = useState([]);
   const [specialOffers, setSpecialOffers] = useState([]);
   const [currentSlide, setCurrentSlide] = useState(0);
 
@@ -203,32 +206,50 @@ export default function HomePage() {
         });
         setPhotoVideoServices(photoVideo);
 
-        // 2. Wedding Car Rentals
+        // 2. Catering Equipment Rentals & Catering (Chafing dishes, tableware, food warmers)
+        const catering = srvs.filter(s => {
+          const c = (s.category?.name || '').toLowerCase();
+          const n = (s.name || '').toLowerCase();
+          const d = (s.businessDivision?.name || '').toLowerCase();
+          return c.includes('cater') || n.includes('cater') || d.includes('cater') || 
+                 c.includes('dish') || n.includes('dish') || c.includes('buffet') || n.includes('buffet') || 
+                 c.includes('chafing') || n.includes('chafing') || n.includes('tableware');
+        });
+        setCateringServices(catering);
+
+        // 3. Wedding Car Rentals (ONLY actual cars, limos, convoys - EXCLUDING catering equipment/dishes!)
         const carRentals = srvs.filter(s => {
           const c = (s.category?.name || '').toLowerCase();
           const n = (s.name || '').toLowerCase();
           const d = (s.businessDivision?.name || '').toLowerCase();
-          return c.includes('car') || n.includes('car') || c.includes('rental') || d.includes('car') || d.includes('rental') || n.includes('limo');
+          const isCatering = c.includes('cater') || n.includes('cater') || d.includes('cater') || 
+                             c.includes('dish') || n.includes('dish') || c.includes('buffet') || n.includes('buffet');
+          if (isCatering) return false;
+          return c.includes('car') || n.includes('car') || d.includes('car') || 
+                 n.includes('limo') || n.includes('convoy') || c.includes('convoy') || 
+                 n.includes('sorento') || n.includes('land cruiser') || n.includes('range rover') || n.includes('benz') || 
+                 (d === 'car rentals' || d === 'car rental');
         });
         setCarRentalServices(carRentals);
 
-        // 3. Wedding Services (Decor, Catering, Protocol, DJ/MC)
+        // 4. Wedding Services (Decor, Protocol, DJ/MC - EXCLUDING cars, photo/video, and catering equipment)
         const weddingGeneral = srvs.filter(s => {
           const isPhoto = photoVideo.some(p => p.id === s.id);
           const isCar = carRentals.some(c => c.id === s.id);
+          const isCater = catering.some(cat => cat.id === s.id);
           const isWeddingDiv = s.businessDivision?.slug === 'wedding-services' || (s.businessDivision?.name || '').toLowerCase().includes('wedding');
-          return isWeddingDiv && !isPhoto && !isCar;
+          return isWeddingDiv && !isPhoto && !isCar && !isCater;
         });
         setWeddingServices(weddingGeneral);
 
-        // 4. Consultancy Services
+        // 5. Consultancy Services
         const consultancy = srvs.filter(s =>
           s.businessDivision?.slug === 'consultancy-services' ||
           (s.businessDivision?.name || '').toLowerCase().includes('consult')
         );
         setConsultancyServices(consultancy);
 
-        // 5. Food & Beverages
+        // 6. Food & Beverages
         const food = prods.filter(p => {
           const divStr = (p.businessDivision?.name || p.businessDivision?.slug || '').toLowerCase();
           const catStr = (p.category?.name || '').toLowerCase();
@@ -239,7 +260,7 @@ export default function HomePage() {
         });
         setFoodProducts(food);
 
-        // 6. Clothes & Shoes (Comes Last)
+        // 7. Clothes & Shoes (Comes Last)
         const clothes = prods.filter(p => {
           const divStr = (p.businessDivision?.name || p.businessDivision?.slug || '').toLowerCase();
           const catStr = (p.category?.name || '').toLowerCase();
@@ -249,6 +270,17 @@ export default function HomePage() {
             nameStr.includes('shoe') || nameStr.includes('dress') || nameStr.includes('suit') || nameStr.includes('heel') || nameStr.includes('mushanana');
         });
         setClothesProducts(clothes);
+
+        // 8. IT Supplies & Electronics
+        const itItems = prods.filter(p => {
+          const divStr = (p.businessDivision?.name || p.businessDivision?.slug || '').toLowerCase();
+          const catStr = (p.category?.name || '').toLowerCase();
+          const nameStr = (p.name || '').toLowerCase();
+          return divStr.includes('it') || divStr.includes('tech') || divStr.includes('comput') || divStr.includes('suppl') ||
+            catStr.includes('comput') || catStr.includes('laptop') || catStr.includes('it') ||
+            nameStr.includes('computer') || nameStr.includes('hp') || nameStr.includes('laptop');
+        });
+        setItProducts(itItems);
 
         // Special Offers
         const offers = prods.filter(p => p.discountPercentage > 0 || (p.salePrice && p.salePrice < p.regularPrice));
@@ -555,9 +587,58 @@ export default function HomePage() {
           );
         }
 
-        // 3. Car rentals
-        if (nameLower.includes('car') || nameLower.includes('rental') || nameLower.includes('transport')) {
-          if (carRentalServices.length === 0) return null;
+        // 3. Catering Equipment Rentals & Catering
+        if (nameLower.includes('cater') || nameLower.includes('dish') || nameLower.includes('buffet')) {
+          const specificCatering = allServices.filter(s => s.businessDivisionId === div.id || (s.businessDivision?.name || '').toLowerCase() === nameLower);
+          const cateringToDisplay = specificCatering.length > 0 ? specificCatering : cateringServices;
+          if (cateringToDisplay.length === 0) return null;
+          return (
+            <section key={div.id || 'catering'} className="max-w-7xl mx-auto px-4">
+              <div className="border border-brand-border rounded-3xl p-6 bg-white shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
+                      <Utensils className="w-6 h-6 text-brand-yellow" />
+                      <span>🍽️ {div.name}</span>
+                    </h2>
+                    <p className="text-xs text-brand-muted">
+                      {div.description || 'Chafing dishes, banquet tableware, warming trays, and professional event catering equipment rentals'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Link to={`/services?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
+                      View {div.name} &rarr;
+                    </Link>
+                    {cateringToDisplay.length > 3 && (
+                      <div className="flex gap-1">
+                        <button onClick={() => scrollContainer(`catering-scroller-${div.id || 'cater'}`, 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Previous">
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => scrollContainer(`catering-scroller-${div.id || 'cater'}`, 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Next">
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div id={`catering-scroller-${div.id || 'cater'}`} className="flex gap-4 overflow-x-auto pb-2 scrollbar-none snap-x">
+                  {cateringToDisplay.map((s) => (
+                    <div key={s.id} className="min-w-[260px] sm:min-w-[320px] max-w-[320px] flex-shrink-0 snap-start">
+                      <ServiceCard service={s} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          );
+        }
+
+        // 4. Car rentals (ONLY actual cars, limousines, convoys - NEVER catering!)
+        if ((nameLower.includes('car') || nameLower.includes('transport') || nameLower.includes('convoy') || nameLower.includes('fleet') || nameLower.includes('limo')) && !nameLower.includes('cater')) {
+          const specificCars = allServices.filter(s => s.businessDivisionId === div.id || (s.businessDivision?.name || '').toLowerCase() === nameLower);
+          const carToDisplay = specificCars.length > 0 ? specificCars : carRentalServices;
+          if (carToDisplay.length === 0) return null;
           return (
             <section key={div.id || 'car'} className="max-w-7xl mx-auto px-4">
               <div className="bg-slate-50 border border-brand-border rounded-3xl p-6 shadow-sm">
@@ -575,12 +656,12 @@ export default function HomePage() {
                     <Link to={`/services?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
                       View Fleet &rarr;
                     </Link>
-                    {carRentalServices.length > 3 && (
+                    {carToDisplay.length > 3 && (
                       <div className="flex gap-1">
-                        <button onClick={() => scrollContainer('cars-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Previous">
+                        <button onClick={() => scrollContainer(`cars-scroller-${div.id || 'car'}`, 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Previous">
                           <ChevronLeft className="w-4 h-4" />
                         </button>
-                        <button onClick={() => scrollContainer('cars-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Next">
+                        <button onClick={() => scrollContainer(`cars-scroller-${div.id || 'car'}`, 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Next">
                           <ChevronRight className="w-4 h-4" />
                         </button>
                       </div>
@@ -588,8 +669,8 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                <div id="cars-scroller" className="flex gap-4 overflow-x-auto pb-2 scrollbar-none snap-x">
-                  {carRentalServices.map((s) => (
+                <div id={`cars-scroller-${div.id || 'car'}`} className="flex gap-4 overflow-x-auto pb-2 scrollbar-none snap-x">
+                  {carToDisplay.map((s) => (
                     <div key={s.id} className="min-w-[260px] sm:min-w-[320px] max-w-[320px] flex-shrink-0 snap-start">
                       <ServiceCard service={s} />
                     </div>
@@ -748,7 +829,7 @@ export default function HomePage() {
                 <div>
                   <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
                     <Sparkles className="w-6 h-6 text-brand-yellow" />
-                    <span>{div.name}</span>
+                    <span>{getCategoryEmoji(div.name)} {div.name}</span>
                   </h2>
                   <p className="text-xs text-brand-muted">{div.description || 'Dynamic business division catalog'}</p>
                 </div>

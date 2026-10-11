@@ -6,12 +6,14 @@ import { api, getWhatsAppLink } from '../services/api';
 
 function getDivisionEmoji(name = '') {
   const n = (name || '').toLowerCase();
-  if (n.includes('car') || n.includes('rental') || n.includes('convoy')) return '🚗';
-  if (n.includes('cloth') || n.includes('shoe') || n.includes('dress') || n.includes('fashion')) return '👟';
-  if (n.includes('food') || n.includes('beverage') || n.includes('juice') || n.includes('drink')) return '🍔';
+  if (n.includes('cater') || n.includes('dish') || n.includes('buffet') || n.includes('kitchen') || n.includes('chafing')) return '🍽️';
+  if (n.includes('car') || n.includes('vehic') || n.includes('convoy') || n.includes('limo') || n.includes('fleet') || n.includes('transport')) return '🚗';
+  if (n.includes('cloth') || n.includes('shoe') || n.includes('dress') || n.includes('fashion') || n.includes('apparel')) return '👟';
+  if (n.includes('food') || n.includes('beverage') || n.includes('juice') || n.includes('drink') || n.includes('rice')) return '🍔';
   if (n.includes('wedding') || n.includes('decor')) return '💍';
   if (n.includes('consult')) return '💼';
-  if (n.includes('photo') || n.includes('video')) return '📸';
+  if (n.includes('photo') || n.includes('video') || n.includes('camera')) return '📸';
+  if (n.includes('it') || n.includes('tech') || n.includes('comput') || n.includes('suppl')) return '💻';
   return '🏷️';
 }
 
@@ -188,8 +190,10 @@ export default function Navbar() {
                 div.name.toLowerCase().includes('rental') ||
                 div.name.toLowerCase().includes('consult') ||
                 div.name.toLowerCase().includes('photo') ||
-                div.name.toLowerCase().includes('wedding')
-              ) && !div.name.toLowerCase().includes('cloth') && !div.name.toLowerCase().includes('food');
+                div.name.toLowerCase().includes('video') ||
+                div.name.toLowerCase().includes('wedding') ||
+                div.name.toLowerCase().includes('car')
+              ) && !div.name.toLowerCase().includes('cloth') && !div.name.toLowerCase().includes('food') && !div.name.toLowerCase().includes('it suppl') && !div.name.toLowerCase().includes('computer');
 
               const targetUrl = isServiceDiv
                 ? `/services?division=${encodeURIComponent(div.name)}`

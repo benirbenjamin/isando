@@ -95,17 +95,27 @@ export default function ProductsPage() {
           onClick={() => updateFilter('division', '')}
           className={`px-4 py-2 rounded-full border transition ${!currentDivision ? 'bg-brand-yellow border-brand-yellow text-brand-dark font-extrabold' : 'bg-white border-brand-border hover:bg-gray-50'}`}
         >
-          All Divisions
+          All Products
         </button>
-        {divisions.map(d => (
-          <button
-            key={d.id}
-            onClick={() => updateFilter('division', d.name)}
-            className={`px-4 py-2 rounded-full border transition ${currentDivision === d.name ? 'bg-brand-yellow border-brand-yellow text-brand-dark font-extrabold' : 'bg-white border-brand-border hover:bg-gray-50'}`}
-          >
-            {d.name}
-          </button>
-        ))}
+        {divisions
+          .filter(d => {
+            const n = (d.name || '').toLowerCase();
+            // Exclude pure service divisions
+            const isService = n.includes('photo') || n.includes('video') || n.includes('consult') || 
+                              n.includes('car') || n.includes('rental') || n.includes('cater') || 
+                              (n.includes('wedding') && !n.includes('cloth'));
+            if (isService) return false;
+            return true;
+          })
+          .map(d => (
+            <button
+              key={d.id}
+              onClick={() => updateFilter('division', d.name)}
+              className={`px-4 py-2 rounded-full border transition ${currentDivision === d.name ? 'bg-brand-yellow border-brand-yellow text-brand-dark font-extrabold' : 'bg-white border-brand-border hover:bg-gray-50'}`}
+            >
+              {d.name}
+            </button>
+          ))}
 
         <button
           onClick={() => updateFilter('onSale', onSaleOnly ? '' : 'true')}
