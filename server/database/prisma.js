@@ -16,7 +16,21 @@ if (process.env.DATABASE_URL) {
       url = `${url}${sep}${paramsToAdd.join('&')}`;
     }
   }
+  // Optimize MySQL connection timeout so serverless does not hang for 30s
+  if (url.startsWith('mysql://') || url.startsWith('mysql:')) {
+    if (!url.includes('connect_timeout=')) {
+      const sep = url.includes('?') ? '&' : '?';
+      url = `${url}${sep}connect_timeout=8`;
+    }
+  }
+
   process.env.DATABASE_URL = url;
+
+  // Mask sensitive credentials when logging
+  const masked = url.replace(/:([^:@]+)@/, ':****@');
+  console.log(`🔌 Initializing Prisma with database URL: ${masked}`);
+} else {
+  console.warn('⚠️ No DATABASE_URL environment variable found!');
 }
 
 // Global singleton to prevent connection pool exhaustion in serverless environments
@@ -25,7 +39,7 @@ const globalForPrisma = globalThis;
 export const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
+    log: ['warn', 'error'],
   });
 
 globalForPrisma.prisma = prisma;

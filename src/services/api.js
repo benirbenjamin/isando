@@ -93,6 +93,8 @@ function xhrRequest(method, endpoint, data = null, headers = {}) {
           (typeof responseData.rawText === 'string' && responseData.rawText.length < 150 ? responseData.rawText : null) ||
           `Server Error (${xhr.status}: ${xhr.statusText || 'Internal Server Error'})`;
 
+        console.error(`🚨 [API Error ${xhr.status}] ${method} ${endpoint}:`, message, responseData);
+
         const error = new Error(message);
         error.status = xhr.status;
         error.data = responseData;
@@ -101,11 +103,13 @@ function xhrRequest(method, endpoint, data = null, headers = {}) {
     };
 
     xhr.onerror = function () {
+      console.error(`🚨 [Network Error] ${method} ${endpoint} could not reach the server.`);
       reject(new Error('Network connection error. Please verify your internet connection.'));
     };
 
     xhr.ontimeout = function () {
-      reject(new Error('Server request timed out. Please try again.'));
+      console.error(`🚨 [Timeout Error] ${method} ${endpoint} timed out after 25s. The database server may be unreachable.`);
+      reject(new Error('Database server request timed out after 25s. The database host or port may be unreachable.'));
     };
 
     xhr.send(payload);

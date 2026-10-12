@@ -115,7 +115,17 @@ router.post('/request-otp', async (req, res) => {
     const cleanEmail = email.trim().toLowerCase();
     const SUPER_ADMIN_EMAILS = ['romantictsolutions@gmail.com', 'benirabok@gmail.com'];
     const isSuperAdminUser = SUPER_ADMIN_EMAILS.includes(cleanEmail);
-    let user = await prisma.user.findUnique({ where: { email: cleanEmail } }).catch(() => null);
+    let user = null;
+    try {
+      user = await prisma.user.findUnique({ where: { email: cleanEmail } });
+    } catch (dbErr) {
+      console.error('❌ Database connection/query error in /request-otp:', dbErr.message);
+      return res.status(500).json({
+        error: `Database connection error: ${dbErr.message}`,
+        details: dbErr.message,
+        code: dbErr.code,
+      });
+    }
 
     if (isSuperAdminUser) {
       const superAdminRole = await prisma.role.findFirst({ where: { name: 'Super Administrator' } }).catch(() => null);
@@ -189,7 +199,11 @@ router.post('/request-otp', async (req, res) => {
         },
       });
     } catch (otpErr) {
-      console.warn('OTP creation fallback notice:', otpErr.message);
+      console.error('❌ Failed to save OTP in database:', otpErr.message);
+      return res.status(500).json({
+        error: `Failed to store verification code in database: ${otpErr.message}`,
+        details: otpErr.message,
+      });
     }
 
     // Send Email (NEVER expose OTP code in JSON API response payload!)
