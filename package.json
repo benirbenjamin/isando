@@ -6,15 +6,15 @@
   "main": "server/index.js",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "prisma generate && vite build",
-    "postinstall": "prisma generate",
+    "dev": "node server/scripts/prepare-prisma.js && vite",
+    "build": "node server/scripts/prepare-prisma.js && prisma generate && (prisma db push --accept-data-loss || true) && vite build",
+    "postinstall": "node server/scripts/prepare-prisma.js && prisma generate",
     "preview": "vite preview",
-    "server": "node server/index.js",
-    "start": "node server/index.js",
-    "db:push": "prisma db push",
+    "server": "node server/scripts/prepare-prisma.js && node server/index.js",
+    "start": "node server/scripts/prepare-prisma.js && node server/index.js",
+    "db:push": "node server/scripts/prepare-prisma.js && prisma db push",
     "db:seed": "node server/prisma/seed.js",
-    "db:studio": "prisma studio"
+    "db:studio": "node server/scripts/prepare-prisma.js && prisma studio"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

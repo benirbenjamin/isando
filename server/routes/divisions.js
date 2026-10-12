@@ -31,7 +31,12 @@ router.get('/', async (req, res) => {
     } catch (dbErr) {
       // Column sortOrder might be missing on remote DB, add it immediately!
       try {
-        await prisma.$executeRawUnsafe(`ALTER TABLE "BusinessDivision" ADD COLUMN IF NOT EXISTS "sortOrder" INTEGER NOT NULL DEFAULT 0;`);
+        const isMysql = process.env.DATABASE_URL && (process.env.DATABASE_URL.includes('mysql:') || process.env.DATABASE_URL.includes('mysql://'));
+        if (isMysql) {
+          await prisma.$executeRawUnsafe(`ALTER TABLE BusinessDivision ADD COLUMN sortOrder INT NOT NULL DEFAULT 0;`).catch(() => {});
+        } else {
+          await prisma.$executeRawUnsafe(`ALTER TABLE "BusinessDivision" ADD COLUMN IF NOT EXISTS "sortOrder" INTEGER NOT NULL DEFAULT 0;`).catch(() => {});
+        }
         divisions = await prisma.businessDivision.findMany({
           include: {
             categories: true,
@@ -81,22 +86,23 @@ router.put('/reorder', authenticateToken, hasPermission('products.create'), asyn
     }
 
     try {
-      await prisma.$executeRawUnsafe(`ALTER TABLE "BusinessDivision" ADD COLUMN IF NOT EXISTS "sortOrder" INTEGER NOT NULL DEFAULT 0;`);
+      const isMysql = process.env.DATABASE_URL && (process.env.DATABASE_URL.includes('mysql:') || process.env.DATABASE_URL.includes('mysql://'));
+      if (isMysql) {
+        await prisma.$executeRawUnsafe(`ALTER TABLE BusinessDivision ADD COLUMN sortOrder INT NOT NULL DEFAULT 0;`).catch(() => {});
+      } else {
+        await prisma.$executeRawUnsafe(`ALTER TABLE "BusinessDivision" ADD COLUMN IF NOT EXISTS "sortOrder" INTEGER NOT NULL DEFAULT 0;`).catch(() => {});
+      }
     } catch {}
 
     for (let i = 0; i < ids.length; i++) {
       const id = ids[i];
       try {
-        await prisma.$executeRawUnsafe(`UPDATE "BusinessDivision" SET "sortOrder" = $1 WHERE "id" = $2;`, i, id);
-      } catch {
-        try {
-          await prisma.businessDivision.update({
-            where: { id },
-            data: { sortOrder: i }
-          });
-        } catch (e) {
-          console.warn(`Could not update sortOrder for division ${id}:`, e.message);
-        }
+        await prisma.businessDivision.update({
+          where: { id },
+          data: { sortOrder: i }
+        });
+      } catch (e) {
+        console.warn(`Could not update sortOrder for division ${id}:`, e.message);
       }
     }
 
@@ -141,7 +147,12 @@ router.post('/', authenticateToken, hasPermission('products.create'), async (req
     
     // Ensure column exists
     try {
-      await prisma.$executeRawUnsafe(`ALTER TABLE "BusinessDivision" ADD COLUMN IF NOT EXISTS "sortOrder" INTEGER NOT NULL DEFAULT 0;`);
+      const isMysql = process.env.DATABASE_URL && (process.env.DATABASE_URL.includes('mysql:') || process.env.DATABASE_URL.includes('mysql://'));
+      if (isMysql) {
+        await prisma.$executeRawUnsafe(`ALTER TABLE BusinessDivision ADD COLUMN sortOrder INT NOT NULL DEFAULT 0;`).catch(() => {});
+      } else {
+        await prisma.$executeRawUnsafe(`ALTER TABLE "BusinessDivision" ADD COLUMN IF NOT EXISTS "sortOrder" INTEGER NOT NULL DEFAULT 0;`).catch(() => {});
+      }
     } catch {}
 
     const count = await prisma.businessDivision.count().catch(() => 0);

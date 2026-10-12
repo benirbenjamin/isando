@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -16,7 +16,7 @@ model User {
   passwordHash       String?
   fullName           String
   phone              String?
-  profileImage       String?
+  profileImage       String?   @db.Text
   status             String    @default("ACTIVE") // ACTIVE, INACTIVE
   roleId             String?
   role               Role?     @relation(fields: [roleId], references: [id])
@@ -55,7 +55,7 @@ model OtpCode {
 model Role {
   id          String   @id @default(uuid())
   name        String   @unique
-  description String?
+  description String?  @db.Text
   isSystem    Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -67,7 +67,7 @@ model Role {
 model Permission {
   id          String   @id @default(uuid())
   code        String   @unique // e.g., 'users.view', 'products.create'
-  description String
+  description String   @db.Text
   category    String   // e.g., 'Users', 'Products', 'Sales'
   roles       RolePermission[]
 }
@@ -84,7 +84,7 @@ model RolePermission {
 model Department {
   id          String   @id @default(uuid())
   name        String   @unique
-  description String?
+  description String?  @db.Text
   createdAt   DateTime @default(now())
   users       User[]
 }
@@ -93,8 +93,8 @@ model BusinessDivision {
   id          String   @id @default(uuid())
   name        String   @unique
   slug        String   @unique
-  description String?
-  image       String?
+  description String?  @db.Text
+  image       String?  @db.Text
   tag         String?
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
@@ -124,12 +124,12 @@ model Product {
   id                 String   @id @default(uuid())
   name               String
   sku                String   @unique
-  description        String
+  description        String   @db.Text
   businessDivisionId String
   businessDivision   BusinessDivision @relation(fields: [businessDivisionId], references: [id])
   categoryId         String
   category           Category @relation(fields: [categoryId], references: [id])
-  images             String   // JSON string of image URLs
+  images             String   @db.Text // JSON string of image URLs
   regularPrice       Float    @default(0)
   salePrice          Float    @default(0)
   discountPercentage Int      @default(0)
@@ -174,7 +174,7 @@ model InventoryTransaction {
   newQty       Int
   userId       String
   user         User            @relation(fields: [userId], references: [id])
-  note         String?
+  note         String?         @db.Text
   createdAt    DateTime        @default(now())
 }
 
@@ -189,7 +189,7 @@ model Sale {
   customerPhone String?
   sellerId      String
   seller        User     @relation("SellerSales", fields: [sellerId], references: [id])
-  notes         String?
+  notes         String?  @db.Text
   createdAt     DateTime @default(now())
 
   items SaleItem[]
@@ -200,8 +200,8 @@ model Customer {
   name      String
   phone     String?
   email     String?
-  address   String?
-  notes     String?
+  address   String?  @db.Text
+  notes     String?  @db.Text
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -224,15 +224,15 @@ model SaleItem {
 model Service {
   id                 String   @id @default(uuid())
   name               String
-  description        String
+  description        String   @db.Text
   businessDivisionId String
   businessDivision   BusinessDivision @relation(fields: [businessDivisionId], references: [id])
   categoryId         String
   category           Category @relation(fields: [categoryId], references: [id])
-  images             String   // JSON array string
+  images             String   @db.Text // JSON array string
   location           String?  @default("Kigali & nationwide")
   startingPrice      Float?   // Optional starting price
-  features           String?  // JSON array string of bullet features
+  features           String?  @db.Text // JSON array string of bullet features
   icon               String?  // Icon emoji or name
   isFeatured         Boolean  @default(false)
   status             String   @default("ACTIVE") // ACTIVE, DRAFT
@@ -250,7 +250,7 @@ model Event {
   date        DateTime
   startTime   String?
   endTime     String?
-  description String?
+  description String?  @db.Text
   status      String   @default("PLANNING") // PLANNING, CONFIRMED, LIVE, COMPLETED, CANCELLED
   managerId   String?
   manager     User?    @relation("EventManager", fields: [managerId], references: [id])
@@ -281,7 +281,7 @@ model EventAssignment {
 model Task {
   id             String    @id @default(uuid())
   title          String
-  description    String?
+  description    String?   @db.Text
   assignedUserId String?
   assignedUser   User?     @relation("AssignedTasks", fields: [assignedUserId], references: [id])
   assignedRoleId String?
@@ -299,7 +299,7 @@ model Task {
 model Announcement {
   id             String   @id @default(uuid())
   title          String
-  message        String
+  message        String   @db.Text
   targetAudience String   @default("EVERYONE") // EVERYONE, DEPARTMENT, ROLE, EVENT_TEAM, USERS
   targetId       String?  // departmentId, roleId, eventId, or userId
   priority       String   @default("NORMAL") // NORMAL, HIGH, URGENT
@@ -339,8 +339,8 @@ model Message {
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   senderId       String
   sender         User         @relation(fields: [senderId], references: [id])
-  text           String
-  attachments    String?      // JSON array of file URLs
+  text           String       @db.Text
+  attachments    String?      @db.Text // JSON array of file URLs
   createdAt      DateTime     @default(now())
 
   reads MessageRead[]
@@ -362,7 +362,7 @@ model Notification {
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   type            String   // ANNOUNCEMENT, MESSAGE, TASK, EVENT, INVENTORY_LOW
   title           String
-  message         String
+  message         String   @db.Text
   relatedEntityId String?
   entityType      String?  // 'event', 'task', 'announcement', 'product'
   isRead          Boolean  @default(false)
@@ -376,15 +376,15 @@ model AuditLog {
   action    String   // USER_CREATED, STOCK_CHANGED, SALE_RECORDED, etc.
   entity    String   // Product, Event, Sale, User
   entityId  String?
-  metadata  String?  // JSON string
+  metadata  String?  @db.Text // JSON string
   timestamp DateTime @default(now())
 }
 
 model Setting {
   id          String   @id @default(uuid())
   key         String   @unique
-  value       String   // Text or JSON string
-  description String?
+  value       String   @db.Text // Text or JSON string
+  description String?  @db.Text
   category    String   @default("GENERAL") // GENERAL, EMAIL, STORAGE, HOMEPAGE
   updatedAt   DateTime @updatedAt
 }

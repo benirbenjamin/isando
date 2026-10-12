@@ -5,10 +5,15 @@ import prisma from './prisma.js';
 
 async function ensureTablesExist() {
   if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('sqlite') && !process.env.DATABASE_URL.includes('.db')) {
+    const isMysql = process.env.DATABASE_URL.includes('mysql:') || process.env.DATABASE_URL.includes('mysql://');
     try {
-      await prisma.$executeRawUnsafe(`ALTER TABLE "BusinessDivision" ADD COLUMN IF NOT EXISTS "sortOrder" INTEGER NOT NULL DEFAULT 0;`);
+      if (isMysql) {
+        await prisma.$executeRawUnsafe(`ALTER TABLE BusinessDivision ADD COLUMN sortOrder INT NOT NULL DEFAULT 0;`).catch(() => {});
+      } else {
+        await prisma.$executeRawUnsafe(`ALTER TABLE "BusinessDivision" ADD COLUMN IF NOT EXISTS "sortOrder" INTEGER NOT NULL DEFAULT 0;`).catch(() => {});
+      }
     } catch {}
-    return; // PostgreSQL schema is handled safely by Prisma
+    return; // Schemas are handled safely by Prisma
   }
   const createTablesSQL = [
     `CREATE TABLE IF NOT EXISTS "User" (
@@ -321,7 +326,7 @@ export async function autoMigrateDatabase() {
         where: { 
           OR: [
             { email: { in: ['romantictsolutions@gmail.com', 'benirabok@gmail.com'] } },
-            { fullName: { contains: 'benirabok', mode: 'insensitive' } }
+            { fullName: { contains: 'benirabok' } }
           ]
         },
         data: { roleId: superAdminRole.id, status: 'ACTIVE' },
