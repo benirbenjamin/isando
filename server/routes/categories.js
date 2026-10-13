@@ -1,5 +1,5 @@
 import express from 'express';
-import prisma from '../database/prisma.js';
+import prisma, { withDbRetry } from '../database/prisma.js';
 import { authenticateToken, hasPermission } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -16,13 +16,16 @@ function slugify(text) {
  */
 router.get('/', async (req, res) => {
   try {
-    const categories = await prisma.category.findMany({
-      include: {
-        businessDivision: true,
-        _count: { select: { products: true, services: true } },
-      },
-      orderBy: { name: 'asc' },
-    });
+    const categories = await withDbRetry(
+      () => prisma.category.findMany({
+        include: {
+          businessDivision: true,
+          _count: { select: { products: true, services: true } },
+        },
+        orderBy: { name: 'asc' },
+      }),
+      { maxRetries: 3, initialDelayMs: 1500, operationName: 'List categories' }
+    );
     return res.json({ categories });
   } catch (err) {
     return res.status(500).json({ error: err.message });

@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ChevronLeft, ChevronRight, Sparkles, MessageCircle, HeartHandshake,
-  Briefcase, ArrowRight, Utensils, Shirt, Flame, Camera, Car
+  Briefcase, ArrowRight, Utensils, Shirt, Flame, Camera, Car, RefreshCw,
+  Database, ShieldCheck
 } from 'lucide-react';
 import { api, getWhatsAppLink, getImageUrl, getImageBackupUrl } from '../services/api';
 import ProductCard from '../components/ProductCard';
@@ -87,6 +88,226 @@ const DEFAULT_FEATURED_SLIDES = [
   }
 ];
 
+// High-availability baseline divisions
+const FALLBACK_DIVISIONS = [
+  { id: 'div-photo', name: 'Photography & Videography', slug: 'photography-videography', description: 'Cinematic 4K wedding films, aerial drone footage & heirloom albums', sortOrder: 1 },
+  { id: 'div-wedding', name: 'Wedding Services', slug: 'wedding-services', description: 'Exquisite venue decoration, catering & buffet, sound, lighting & MCs', sortOrder: 2 },
+  { id: 'div-cater', name: 'Catering Equipment Rentals', slug: 'catering-equipment', description: 'Chafing dishes, banquet tableware, food warmers & equipment rentals', sortOrder: 3 },
+  { id: 'div-car', name: 'Wedding Car Rentals', slug: 'wedding-car-rentals', description: 'Mercedes-Benz, V8 Land Cruisers, VIP Range Rovers & bridal convoys', sortOrder: 4 },
+  { id: 'div-consult', name: 'Consultancy Services', slug: 'consultancy-services', description: 'Business strategy advisory, corporate event planning & executive training', sortOrder: 5 },
+  { id: 'div-food', name: 'Food & Beverages', slug: 'food-beverages', description: 'Fresh 100% natural juices, crate soft drinks, wholesale rice & catering food', sortOrder: 6 },
+  { id: 'div-clothes', name: 'Clothes & Shoes', slug: 'clothes-shoes', description: 'Authentic royal Mushanana, bespoke tuxedos, wedding dresses & leather shoes', sortOrder: 7 },
+];
+
+// High-availability baseline products
+const FALLBACK_PRODUCTS = [
+  {
+    id: 'prod-fb-1',
+    name: 'Premium Natural Fruit Juice (12 Bottles)',
+    sku: 'FB-JUICE-12P',
+    description: 'Refreshing 100% natural Inyange fruit juices, ideal for events, homes and offices.',
+    regularPrice: 18000,
+    salePrice: 14400,
+    discountPercentage: 20,
+    stockQuantity: 40,
+    isFeatured: true,
+    isOnSale: true,
+    businessDivision: { id: 'div-food', name: 'Food & Beverages', slug: 'food-beverages' },
+    category: { id: 'cat-juice', name: 'Fresh Juices & Smoothies', slug: 'fresh-juices' },
+    images: ['https://images.unsplash.com/photo-1544145945-f90425340c7e?auto=format&fit=crop&w=800&q=70'],
+  },
+  {
+    id: 'prod-fb-2',
+    name: 'Super Grade Tanzanian Rice 25kg',
+    sku: 'FB-RICE-25KG',
+    description: 'Premium quality aromatic long-grain rice supplied in bulk for retail and catering.',
+    regularPrice: 38000,
+    salePrice: 38000,
+    discountPercentage: 0,
+    stockQuantity: 25,
+    isPopular: true,
+    businessDivision: { id: 'div-food', name: 'Food & Beverages', slug: 'food-beverages' },
+    category: { id: 'cat-rice', name: 'Wholesale Rice & Grains', slug: 'wholesale-rice' },
+    images: ['https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=70'],
+  },
+  {
+    id: 'prod-fb-3',
+    name: 'Assorted Soft Drinks Crate (Cold Ready)',
+    sku: 'FB-DRINKS-CRATE',
+    description: 'Chilled crate of assorted sparkling soft drinks ready for celebrations and retail.',
+    regularPrice: 12000,
+    salePrice: 10000,
+    discountPercentage: 17,
+    stockQuantity: 60,
+    isNewArrival: true,
+    isOnSale: true,
+    businessDivision: { id: 'div-food', name: 'Food & Beverages', slug: 'food-beverages' },
+    category: { id: 'cat-drinks', name: 'Beverages & Soft Drinks', slug: 'beverages-soft-drinks' },
+    images: ['https://images.unsplash.com/photo-1581636625402-29b2a704ef4c?auto=format&fit=crop&w=800&q=70'],
+  },
+  {
+    id: 'prod-cs-1',
+    name: 'Classic Designer Red Sneakers',
+    sku: 'CS-RED-SNEAK',
+    description: 'Comfortable everyday designer sneakers with durable, cushioned rubber soles.',
+    regularPrice: 50000,
+    salePrice: 35000,
+    discountPercentage: 30,
+    stockQuantity: 25,
+    isFeatured: true,
+    isOnSale: true,
+    isPopular: true,
+    businessDivision: { id: 'div-clothes', name: 'Clothes & Shoes', slug: 'clothes-shoes' },
+    category: { id: 'cat-shoes', name: "Men's Shoes & Sneakers", slug: 'mens-shoes-sneakers' },
+    images: ['https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=800&q=70'],
+  },
+  {
+    id: 'prod-cs-2',
+    name: 'Authentic Royal Rwandan Mushanana Attire',
+    sku: 'CS-MUSHANANA',
+    description: 'Graceful authentic Rwandan cultural ceremonial dress with fine gold embroidery styling.',
+    regularPrice: 65000,
+    salePrice: 52000,
+    discountPercentage: 20,
+    stockQuantity: 15,
+    isFeatured: true,
+    isOnSale: true,
+    businessDivision: { id: 'div-clothes', name: 'Clothes & Shoes', slug: 'clothes-shoes' },
+    category: { id: 'cat-mush', name: 'Traditional Rwandan Attire', slug: 'traditional-rwandan-mushanana' },
+    images: ['https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=70'],
+  },
+  {
+    id: 'prod-cs-3',
+    name: 'Bespoke Tailored Royal Tuxedo Suit',
+    sku: 'CS-TUXEDO',
+    description: 'High-end slim-fit groom and executive tuxedo suit tailored with Italian wool blend.',
+    regularPrice: 120000,
+    salePrice: 95000,
+    discountPercentage: 21,
+    stockQuantity: 10,
+    isNewArrival: true,
+    isOnSale: true,
+    businessDivision: { id: 'div-clothes', name: 'Clothes & Shoes', slug: 'clothes-shoes' },
+    category: { id: 'cat-suit', name: "Men's Suits & Formal Wear", slug: 'mens-suits' },
+    images: ['https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=800&q=70'],
+  },
+  {
+    id: 'prod-cs-4',
+    name: 'Elegant Evening Banquet Dress',
+    sku: 'CS-DRESS-EVE',
+    description: 'Stunning floor-length evening dress crafted for weddings and gala banquets.',
+    regularPrice: 45000,
+    salePrice: 32000,
+    discountPercentage: 29,
+    stockQuantity: 18,
+    isNewArrival: true,
+    isOnSale: true,
+    businessDivision: { id: 'div-clothes', name: 'Clothes & Shoes', slug: 'clothes-shoes' },
+    category: { id: 'cat-dress', name: "Women's Dresses & Gowns", slug: 'womens-dresses' },
+    images: ['https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=800&q=70'],
+  }
+];
+
+// High-availability baseline services
+const FALLBACK_SERVICES = [
+  {
+    id: 'srv-pv-1',
+    name: 'Cinematic 4K Wedding Photography & Albums',
+    description: 'Master photographers capturing every precious moment with drone aerials and heirloom albums.',
+    location: 'Kigali & Nationwide',
+    startingPrice: 150000,
+    features: ['Full-day dual camera coverage', '500+ High-res retouched photos', 'Luxury embossed photo album'],
+    isFeatured: true,
+    businessDivision: { id: 'div-photo', name: 'Photography & Videography', slug: 'photography-videography' },
+    category: { id: 'cat-photo', name: 'Photography & Photo Albums', slug: 'photography' },
+    images: ['https://images.unsplash.com/photo-1537633552985-df8429e8048b?auto=format&fit=crop&w=800&q=70'],
+  },
+  {
+    id: 'srv-pv-2',
+    name: 'Aerial Drone 4K Wedding Videography & Films',
+    description: 'Cinematic wedding highlight films with 4K drone cinematography and full documentary edits.',
+    location: 'Kigali & Across Rwanda',
+    startingPrice: 200000,
+    features: ['4K Ultra HD video', 'Licensed drone aerial shots', 'Cinematic trailer & full footage'],
+    isFeatured: true,
+    businessDivision: { id: 'div-photo', name: 'Photography & Videography', slug: 'photography-videography' },
+    category: { id: 'cat-video', name: 'Cinematic Videography & Drones', slug: 'videography' },
+    images: ['https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=70'],
+  },
+  {
+    id: 'srv-car-1',
+    name: 'Luxury Chauffeured Bridal Convoy & Car Rentals',
+    description: 'Prestige Mercedes-Benz, V8 Land Cruisers and VIP Range Rovers with uniformed chauffeurs.',
+    location: 'Kigali & Provinces',
+    startingPrice: 150000,
+    features: ['Professional uniformed chauffeur', 'Bridal ribbon decor', 'Fuel & protocol escort included'],
+    isFeatured: true,
+    businessDivision: { id: 'div-car', name: 'Wedding Car Rentals', slug: 'wedding-car-rentals' },
+    category: { id: 'cat-cars', name: 'Bridal VIP Cars & Limousines', slug: 'bridal-vip-cars' },
+    images: ['https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=70'],
+  },
+  {
+    id: 'srv-wed-1',
+    name: 'Grand Wedding Venue Decoration & Floral Styling',
+    description: 'Exquisite hall transformation, floral arches, crystal lighting, bride & groom royal stage.',
+    location: 'Kigali & Nationwide',
+    startingPrice: 500000,
+    features: ['Royal stage setup', 'Fresh imported floral arches', 'Ambiance mood lighting & centerpieces'],
+    isFeatured: true,
+    businessDivision: { id: 'div-wedding', name: 'Wedding Services', slug: 'wedding-services' },
+    category: { id: 'cat-decor', name: 'Venue Decoration & Floral Styling', slug: 'venue-decoration' },
+    images: ['https://images.unsplash.com/photo-1519225421980-715cb0215aed?auto=format&fit=crop&w=800&q=70'],
+  },
+  {
+    id: 'srv-cat-1',
+    name: 'Chafing Dishes & Banquet Tableware Equipment Rentals',
+    description: 'Stainless steel roll-top chafing dishes, buffet warming trays, porcelain tableware & glassware rentals.',
+    location: 'Kigali & Surrounding Districts',
+    startingPrice: 50000,
+    features: ['Stainless roll-top chafing dishes', 'Complete dining tableware sets', 'Delivery & setup support'],
+    isFeatured: true,
+    businessDivision: { id: 'div-cater', name: 'Catering Equipment Rentals', slug: 'catering-equipment' },
+    category: { id: 'cat-cater', name: 'Full Catering & Equipment', slug: 'catering' },
+    images: ['https://images.unsplash.com/photo-1555244162-803834f70033?auto=format&fit=crop&w=800&q=70'],
+  },
+  {
+    id: 'srv-cat-2',
+    name: 'Gourmet Wedding Catering & Multi-Course Buffet',
+    description: 'Delicious African & continental buffet menu, welcome mocktails, carving stations & trained waitstaff.',
+    location: 'Kigali Nationwide',
+    startingPrice: 350000,
+    features: ['Full multi-course buffet', 'Welcome drinks & cocktail station', 'Professional banquet waitstaff'],
+    isFeatured: true,
+    businessDivision: { id: 'div-wedding', name: 'Wedding Services', slug: 'wedding-services' },
+    category: { id: 'cat-cater', name: 'Full Catering & Equipment', slug: 'catering' },
+    images: ['https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=70'],
+  },
+  {
+    id: 'srv-con-1',
+    name: 'Business Strategy, SME Advisory & Growth Planning',
+    description: 'Practical SME advisory, feasibility plans, budget optimization and commercial development.',
+    location: 'Kigali / Remote Online',
+    startingPrice: null,
+    features: ['Comprehensive business roadmap', 'Market expansion analysis', 'Operational coaching'],
+    isFeatured: true,
+    businessDivision: { id: 'div-consult', name: 'Consultancy Services', slug: 'consultancy-services' },
+    category: { id: 'cat-cons', name: 'Business Strategy & Planning', slug: 'business-strategy' },
+    images: ['https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=800&q=70'],
+  },
+  {
+    id: 'srv-con-2',
+    name: 'Corporate Event Conceptualization & Protocol Advisory',
+    description: 'High-stakes diplomatic & executive corporate event production, vendor management & scheduling.',
+    location: 'Kigali & Regional',
+    startingPrice: null,
+    features: ['End-to-end event production', 'Protocol & VIP guest management', 'Budget & supplier coordination'],
+    isFeatured: true,
+    businessDivision: { id: 'div-consult', name: 'Consultancy Services', slug: 'consultancy-services' },
+    category: { id: 'cat-cons', name: 'Corporate Event Planning', slug: 'corporate-event-planning' },
+    images: ['https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=800&q=70'],
+  }
+];
+
 export default function HomePage() {
   const [divisions, setDivisions] = useState([]);
   const [allProducts, setAllProducts] = useState([]);
@@ -104,195 +325,326 @@ export default function HomePage() {
   const [specialOffers, setSpecialOffers] = useState([]);
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [divRes, prodRes, srvRes] = await Promise.all([
-          api.get('/divisions').catch(() => ({ divisions: [] })),
-          api.get('/products?limit=100').catch(() => ({ products: [] })),
-          api.get('/services?limit=100').catch(() => ({ services: [] }))
-        ]);
+  // Connection & Database Sleep State
+  const [loading, setLoading] = useState(true);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isDbWakingUp, setIsDbWakingUp] = useState(false);
+  const [connectionAttempt, setConnectionAttempt] = useState(1);
+  const [isUsingFallback, setIsUsingFallback] = useState(false);
+  const [isLiveConnected, setIsLiveConnected] = useState(false);
+  const [hasCachedData, setHasCachedData] = useState(false);
 
-        const prods = prodRes.products || [];
-        const srvs = srvRes.services || [];
-        const divs = divRes.divisions || [];
-        setDivisions(divs);
-        setAllProducts(prods);
-        setAllServices(srvs);
+  // Categorize and structure raw items into division buckets
+  const applyCatalog = useCallback((prods = [], srvs = [], divs = []) => {
+    const rawProds = Array.isArray(prods) ? prods : [];
+    const rawSrvs = Array.isArray(srvs) ? srvs : [];
+    const rawDivs = Array.isArray(divs) && divs.length > 0 ? divs : FALLBACK_DIVISIONS;
 
-        // Extract all dynamic categories across divisions
-        const dynamicCats = [];
-        divs.forEach(div => {
-          if (Array.isArray(div.categories) && div.categories.length > 0) {
-            div.categories.forEach(cat => {
-              dynamicCats.push({
-                ...cat,
-                divisionName: div.name,
-                divisionSlug: div.slug,
-              });
-            });
-          }
+    setDivisions(rawDivs);
+    setAllProducts(rawProds);
+    setAllServices(rawSrvs);
+
+    // Extract dynamic categories across divisions
+    const dynamicCats = [];
+    rawDivs.forEach(div => {
+      if (Array.isArray(div.categories) && div.categories.length > 0) {
+        div.categories.forEach(cat => {
+          dynamicCats.push({
+            ...cat,
+            divisionName: div.name,
+            divisionSlug: div.slug,
+          });
         });
-        setCategories(dynamicCats);
+      }
+    });
 
-        // Featured Spotlight items
-        const featP = prods.filter(p => p.isFeatured).map(p => ({
-          id: p.id,
-          _type: 'product',
-          targetUrl: `/products/${p.id}`,
-          name: p.name,
-          badge: 'Featured Product',
-          divisionName: p.businessDivision?.name || 'Product',
-          description: p.description,
-          image: getImageUrl(p.featuredImage || (Array.isArray(p.images) ? p.images[0] : null)),
-          ctaText: 'View Product Details',
-        }));
+    // If divisions didn't embed categories, extract unique categories from products & services
+    if (dynamicCats.length === 0) {
+      const seen = new Set();
+      [...rawProds, ...rawSrvs].forEach(item => {
+        if (item.category && item.category.name && !seen.has(item.category.name)) {
+          seen.add(item.category.name);
+          dynamicCats.push({
+            id: item.category.id || item.category.slug,
+            name: item.category.name,
+            slug: item.category.slug || item.category.name,
+            type: item.regularPrice !== undefined ? 'PRODUCT' : 'SERVICE',
+            divisionName: item.businessDivision?.name || 'General',
+          });
+        }
+      });
+    }
+    setCategories(dynamicCats);
 
-        const featS = srvs.filter(s => s.isFeatured).map(s => ({
+    // Dynamic Featured Spotlight slides
+    const featP = rawProds.filter(p => p.isFeatured).map(p => ({
+      id: p.id,
+      _type: 'product',
+      targetUrl: `/products/${p.id}`,
+      name: p.name,
+      badge: 'Featured Product',
+      divisionName: p.businessDivision?.name || 'Product',
+      description: p.description,
+      image: getImageUrl(p.featuredImage || (Array.isArray(p.images) ? p.images[0] : null)),
+      ctaText: 'View Product Details',
+    }));
+
+    const featS = rawSrvs.filter(s => s.isFeatured).map(s => ({
+      id: s.id,
+      _type: 'service',
+      targetUrl: `/services/${s.id}`,
+      name: s.name,
+      badge: 'Featured Service',
+      divisionName: s.businessDivision?.name || 'Service',
+      description: s.description,
+      image: getImageUrl(s.featuredImage || (Array.isArray(s.images) ? s.images[0] : null)),
+      ctaText: 'Explore Service',
+    }));
+
+    const dynamicFeatured = [...featP, ...featS];
+    if (dynamicFeatured.length > 0) {
+      setFeaturedItems(dynamicFeatured);
+    } else {
+      const realSlides = [
+        ...rawSrvs.slice(0, 3).map(s => ({
           id: s.id,
           _type: 'service',
           targetUrl: `/services/${s.id}`,
           name: s.name,
-          badge: 'Featured Service',
+          badge: s.businessDivision?.name || 'Service',
           divisionName: s.businessDivision?.name || 'Service',
           description: s.description,
           image: getImageUrl(s.featuredImage || (Array.isArray(s.images) ? s.images[0] : null)),
           ctaText: 'Explore Service',
-        }));
+        })),
+        ...rawProds.slice(0, 3).map(p => ({
+          id: p.id,
+          _type: 'product',
+          targetUrl: `/products/${p.id}`,
+          name: p.name,
+          badge: p.businessDivision?.name || 'Product',
+          divisionName: p.businessDivision?.name || 'Product',
+          description: p.description,
+          image: getImageUrl(p.featuredImage || (Array.isArray(p.images) ? p.images[0] : null)),
+          ctaText: 'View Product Details',
+        }))
+      ];
+      setFeaturedItems(realSlides.length > 0 ? realSlides : DEFAULT_FEATURED_SLIDES);
+    }
 
-        const dynamicFeatured = [...featP, ...featS];
-        if (dynamicFeatured.length > 0) {
-          setFeaturedItems(dynamicFeatured);
-        } else {
-          // If no items are flagged as featured, feature real services and products from the catalog
-          const realSlides = [
-            ...srvs.slice(0, 3).map(s => ({
-              id: s.id,
-              _type: 'service',
-              targetUrl: `/services/${s.id}`,
-              name: s.name,
-              badge: s.businessDivision?.name || 'Service',
-              divisionName: s.businessDivision?.name || 'Service',
-              description: s.description,
-              image: getImageUrl(s.featuredImage || (Array.isArray(s.images) ? s.images[0] : null)),
-              ctaText: 'Explore Service',
-            })),
-            ...prods.slice(0, 3).map(p => ({
-              id: p.id,
-              _type: 'product',
-              targetUrl: `/products/${p.id}`,
-              name: p.name,
-              badge: p.businessDivision?.name || 'Product',
-              divisionName: p.businessDivision?.name || 'Product',
-              description: p.description,
-              image: getImageUrl(p.featuredImage || (Array.isArray(p.images) ? p.images[0] : null)),
-              ctaText: 'View Product Details',
-            }))
-          ];
+    // 1. Photography & Videography
+    const photoVideo = rawSrvs.filter(s => {
+      const c = (s.category?.name || '').toLowerCase();
+      const n = (s.name || '').toLowerCase();
+      const d = (s.businessDivision?.name || '').toLowerCase();
+      return c.includes('photo') || c.includes('video') || n.includes('photo') || n.includes('video') || d.includes('photo') || d.includes('video');
+    });
+    setPhotoVideoServices(photoVideo);
 
-          if (realSlides.length > 0) {
-            setFeaturedItems(realSlides);
-          } else {
-            setFeaturedItems(DEFAULT_FEATURED_SLIDES);
-          }
+    // 2. Catering Equipment Rentals & Catering
+    const catering = rawSrvs.filter(s => {
+      const c = (s.category?.name || '').toLowerCase();
+      const n = (s.name || '').toLowerCase();
+      const d = (s.businessDivision?.name || '').toLowerCase();
+      return c.includes('cater') || n.includes('cater') || d.includes('cater') || 
+             c.includes('dish') || n.includes('dish') || c.includes('buffet') || n.includes('buffet') || 
+             c.includes('chafing') || n.includes('chafing') || n.includes('tableware');
+    });
+    setCateringServices(catering);
+
+    // 3. Wedding Car Rentals (Excluding catering dishes)
+    const carRentals = rawSrvs.filter(s => {
+      const c = (s.category?.name || '').toLowerCase();
+      const n = (s.name || '').toLowerCase();
+      const d = (s.businessDivision?.name || '').toLowerCase();
+      const isCatering = c.includes('cater') || n.includes('cater') || d.includes('cater') || 
+                         c.includes('dish') || n.includes('dish') || c.includes('buffet') || n.includes('buffet');
+      if (isCatering) return false;
+      return c.includes('car') || n.includes('car') || d.includes('car') || 
+             n.includes('limo') || n.includes('convoy') || c.includes('convoy') || 
+             n.includes('sorento') || n.includes('land cruiser') || n.includes('range rover') || n.includes('benz') || 
+             (d === 'car rentals' || d === 'car rental');
+    });
+    setCarRentalServices(carRentals);
+
+    // 4. Wedding Services (Decor, Protocol, DJ/MC)
+    const weddingGeneral = rawSrvs.filter(s => {
+      const isPhoto = photoVideo.some(p => p.id === s.id);
+      const isCar = carRentals.some(c => c.id === s.id);
+      const isCater = catering.some(cat => cat.id === s.id);
+      const isWeddingDiv = s.businessDivision?.slug === 'wedding-services' || (s.businessDivision?.name || '').toLowerCase().includes('wedding');
+      return isWeddingDiv && !isPhoto && !isCar && !isCater;
+    });
+    setWeddingServices(weddingGeneral);
+
+    // 5. Consultancy Services
+    const consultancy = rawSrvs.filter(s =>
+      s.businessDivision?.slug === 'consultancy-services' ||
+      (s.businessDivision?.name || '').toLowerCase().includes('consult')
+    );
+    setConsultancyServices(consultancy);
+
+    // 6. Food & Beverages
+    const food = rawProds.filter(p => {
+      const divStr = (p.businessDivision?.name || p.businessDivision?.slug || '').toLowerCase();
+      const catStr = (p.category?.name || '').toLowerCase();
+      const nameStr = (p.name || '').toLowerCase();
+      return divStr.includes('food') || divStr.includes('beverage') ||
+        catStr.includes('food') || catStr.includes('beverage') || catStr.includes('juice') || catStr.includes('drink') || catStr.includes('rice') ||
+        nameStr.includes('juice') || nameStr.includes('rice') || nameStr.includes('drink');
+    });
+    setFoodProducts(food);
+
+    // 7. Clothes & Shoes
+    const clothes = rawProds.filter(p => {
+      const divStr = (p.businessDivision?.name || p.businessDivision?.slug || '').toLowerCase();
+      const catStr = (p.category?.name || '').toLowerCase();
+      const nameStr = (p.name || '').toLowerCase();
+      return divStr.includes('clothe') || divStr.includes('shoe') || divStr.includes('fashion') ||
+        catStr.includes('clothe') || catStr.includes('shoe') || catStr.includes('dress') || catStr.includes('shirt') || catStr.includes('suit') ||
+        nameStr.includes('shoe') || nameStr.includes('dress') || nameStr.includes('suit') || nameStr.includes('heel') || nameStr.includes('mushanana');
+    });
+    setClothesProducts(clothes);
+
+    // 8. IT Supplies & Electronics
+    const itItems = rawProds.filter(p => {
+      const divStr = (p.businessDivision?.name || p.businessDivision?.slug || '').toLowerCase();
+      const catStr = (p.category?.name || '').toLowerCase();
+      const nameStr = (p.name || '').toLowerCase();
+      return divStr.includes('it') || divStr.includes('tech') || divStr.includes('comput') || divStr.includes('suppl') ||
+        catStr.includes('comput') || catStr.includes('laptop') || catStr.includes('it') ||
+        nameStr.includes('computer') || nameStr.includes('hp') || nameStr.includes('laptop');
+    });
+    setItProducts(itItems);
+
+    // Special Offers
+    const offers = rawProds.filter(p => p.discountPercentage > 0 || (p.salePrice && p.salePrice < p.regularPrice));
+    setSpecialOffers(offers);
+  }, []);
+
+  // Fetch live catalog with multi-attempt retry for database sleep wake-up
+  const loadData = useCallback(async (isManualRetry = false) => {
+    setIsConnecting(true);
+
+    let succeeded = false;
+
+    // Retry loop: allows sleeping database up to 3 cycles (with backoff) to wake up
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        setConnectionAttempt(attempt);
+        if (attempt > 1 || isManualRetry) {
+          setIsDbWakingUp(true);
         }
 
-        // 1. Photography & Videography (first)
-        const photoVideo = srvs.filter(s => {
-          const c = (s.category?.name || '').toLowerCase();
-          const n = (s.name || '').toLowerCase();
-          const d = (s.businessDivision?.name || '').toLowerCase();
-          return c.includes('photo') || c.includes('video') || n.includes('photo') || n.includes('video') || d.includes('photo') || d.includes('video');
-        });
-        setPhotoVideoServices(photoVideo);
+        const [divRes, prodRes, srvRes] = await Promise.all([
+          api.get('/divisions', { retries: 2, delayMs: 1200 }),
+          api.get('/products?limit=100', { retries: 2, delayMs: 1200 }),
+          api.get('/services?limit=100', { retries: 2, delayMs: 1200 })
+        ]);
 
-        // 2. Catering Equipment Rentals & Catering (Chafing dishes, tableware, food warmers)
-        const catering = srvs.filter(s => {
-          const c = (s.category?.name || '').toLowerCase();
-          const n = (s.name || '').toLowerCase();
-          const d = (s.businessDivision?.name || '').toLowerCase();
-          return c.includes('cater') || n.includes('cater') || d.includes('cater') || 
-                 c.includes('dish') || n.includes('dish') || c.includes('buffet') || n.includes('buffet') || 
-                 c.includes('chafing') || n.includes('chafing') || n.includes('tableware');
-        });
-        setCateringServices(catering);
+        const prods = Array.isArray(prodRes?.products) ? prodRes.products : [];
+        const srvs = Array.isArray(srvRes?.services) ? srvRes.services : [];
+        const divs = Array.isArray(divRes?.divisions) ? divRes.divisions : [];
 
-        // 3. Wedding Car Rentals (ONLY actual cars, limos, convoys - EXCLUDING catering equipment/dishes!)
-        const carRentals = srvs.filter(s => {
-          const c = (s.category?.name || '').toLowerCase();
-          const n = (s.name || '').toLowerCase();
-          const d = (s.businessDivision?.name || '').toLowerCase();
-          const isCatering = c.includes('cater') || n.includes('cater') || d.includes('cater') || 
-                             c.includes('dish') || n.includes('dish') || c.includes('buffet') || n.includes('buffet');
-          if (isCatering) return false;
-          return c.includes('car') || n.includes('car') || d.includes('car') || 
-                 n.includes('limo') || n.includes('convoy') || c.includes('convoy') || 
-                 n.includes('sorento') || n.includes('land cruiser') || n.includes('range rover') || n.includes('benz') || 
-                 (d === 'car rentals' || d === 'car rental');
-        });
-        setCarRentalServices(carRentals);
+        // If database returned catalog items, populate and cache
+        if (prods.length > 0 || srvs.length > 0 || divs.length > 0) {
+          applyCatalog(prods, srvs, divs);
 
-        // 4. Wedding Services (Decor, Protocol, DJ/MC - EXCLUDING cars, photo/video, and catering equipment)
-        const weddingGeneral = srvs.filter(s => {
-          const isPhoto = photoVideo.some(p => p.id === s.id);
-          const isCar = carRentals.some(c => c.id === s.id);
-          const isCater = catering.some(cat => cat.id === s.id);
-          const isWeddingDiv = s.businessDivision?.slug === 'wedding-services' || (s.businessDivision?.name || '').toLowerCase().includes('wedding');
-          return isWeddingDiv && !isPhoto && !isCar && !isCater;
-        });
-        setWeddingServices(weddingGeneral);
+          try {
+            localStorage.setItem('romantic_home_cache_v2', JSON.stringify({
+              products: prods,
+              services: srvs,
+              divisions: divs,
+              timestamp: Date.now()
+            }));
+          } catch (_) {}
 
-        // 5. Consultancy Services
-        const consultancy = srvs.filter(s =>
-          s.businessDivision?.slug === 'consultancy-services' ||
-          (s.businessDivision?.name || '').toLowerCase().includes('consult')
-        );
-        setConsultancyServices(consultancy);
-
-        // 6. Food & Beverages
-        const food = prods.filter(p => {
-          const divStr = (p.businessDivision?.name || p.businessDivision?.slug || '').toLowerCase();
-          const catStr = (p.category?.name || '').toLowerCase();
-          const nameStr = (p.name || '').toLowerCase();
-          return divStr.includes('food') || divStr.includes('beverage') ||
-            catStr.includes('food') || catStr.includes('beverage') || catStr.includes('juice') || catStr.includes('drink') || catStr.includes('rice') ||
-            nameStr.includes('juice') || nameStr.includes('rice') || nameStr.includes('drink');
-        });
-        setFoodProducts(food);
-
-        // 7. Clothes & Shoes (Comes Last)
-        const clothes = prods.filter(p => {
-          const divStr = (p.businessDivision?.name || p.businessDivision?.slug || '').toLowerCase();
-          const catStr = (p.category?.name || '').toLowerCase();
-          const nameStr = (p.name || '').toLowerCase();
-          return divStr.includes('clothe') || divStr.includes('shoe') || divStr.includes('fashion') ||
-            catStr.includes('clothe') || catStr.includes('shoe') || catStr.includes('dress') || catStr.includes('shirt') || catStr.includes('suit') ||
-            nameStr.includes('shoe') || nameStr.includes('dress') || nameStr.includes('suit') || nameStr.includes('heel') || nameStr.includes('mushanana');
-        });
-        setClothesProducts(clothes);
-
-        // 8. IT Supplies & Electronics
-        const itItems = prods.filter(p => {
-          const divStr = (p.businessDivision?.name || p.businessDivision?.slug || '').toLowerCase();
-          const catStr = (p.category?.name || '').toLowerCase();
-          const nameStr = (p.name || '').toLowerCase();
-          return divStr.includes('it') || divStr.includes('tech') || divStr.includes('comput') || divStr.includes('suppl') ||
-            catStr.includes('comput') || catStr.includes('laptop') || catStr.includes('it') ||
-            nameStr.includes('computer') || nameStr.includes('hp') || nameStr.includes('laptop');
-        });
-        setItProducts(itItems);
-
-        // Special Offers
-        const offers = prods.filter(p => p.discountPercentage > 0 || (p.salePrice && p.salePrice < p.regularPrice));
-        setSpecialOffers(offers);
-
+          setIsLiveConnected(true);
+          setIsDbWakingUp(false);
+          setIsUsingFallback(false);
+          setLoading(false);
+          succeeded = true;
+          break;
+        } else {
+          // If arrays came back empty, DB might still be seeding or cold; wait and retry
+          if (attempt < 3) {
+            setIsDbWakingUp(true);
+            await new Promise(r => setTimeout(r, 2000 * attempt));
+          }
+        }
       } catch (err) {
-        console.warn('Notice loading homepage data:', err.message);
+        console.warn(`⏳ [Catalog DB Wake-up] Attempt ${attempt} failed:`, err.message);
+        setIsDbWakingUp(true);
+        if (attempt < 3) {
+          await new Promise(r => setTimeout(r, 2200 * attempt));
+        }
       }
     }
 
+    if (!succeeded) {
+      // If no live database data arrived and user had no previous cache, activate fallback catalog
+      // This ensures the homepage NEVER appears blank or broken!
+      setAllProducts(prevProds => {
+        if (prevProds.length === 0) {
+          console.info('🛡️ Activating high-availability baseline catalog while database wakes up.');
+          applyCatalog(FALLBACK_PRODUCTS, FALLBACK_SERVICES, FALLBACK_DIVISIONS);
+          setIsUsingFallback(true);
+        }
+        return prevProds;
+      });
+    }
+
+    setIsConnecting(false);
+    setLoading(false);
+  }, [applyCatalog]);
+
+  // Initial mount: hydrate from cache immediately, then fetch live data with retry
+  useEffect(() => {
+    // 1. Instantly check localStorage cache so user NEVER sees a blank screen
+    try {
+      const cached = localStorage.getItem('romantic_home_cache_v2');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if ((parsed.products && parsed.products.length > 0) || (parsed.services && parsed.services.length > 0)) {
+          applyCatalog(parsed.products || [], parsed.services || [], parsed.divisions || []);
+          setLoading(false);
+          setHasCachedData(true);
+        }
+      }
+    } catch (_) {}
+
+    // 2. Fetch fresh live data from database with retry
     loadData();
-  }, []);
+
+    // 3. Listen to global database waking-up events from API transport
+    const handleDbWakeup = () => {
+      setIsDbWakingUp(true);
+    };
+    const handleDbReady = () => {
+      setIsDbWakingUp(false);
+      setIsLiveConnected(true);
+    };
+
+    window.addEventListener('database-waking-up', handleDbWakeup);
+    window.addEventListener('database-ready', handleDbReady);
+
+    return () => {
+      window.removeEventListener('database-waking-up', handleDbWakeup);
+      window.removeEventListener('database-ready', handleDbReady);
+    };
+  }, [applyCatalog, loadData]);
+
+  // Background auto-reconnector: if fallback mode is active, quietly ping database every 14s
+  useEffect(() => {
+    if (!isUsingFallback || isLiveConnected) return;
+
+    const interval = setInterval(() => {
+      console.log('🔄 Re-checking live database connection in background...');
+      loadData(false);
+    }, 14000);
+
+    return () => clearInterval(interval);
+  }, [isUsingFallback, isLiveConnected, loadData]);
 
   // Smooth Auto-sliding for Featured Banner every 5 seconds
   useEffect(() => {
@@ -319,13 +671,106 @@ export default function HomePage() {
     }
   };
 
+  // Safe division set: if server returned empty divisions, use fallback divisions
+  const effectiveDivisions = divisions && divisions.length > 0 ? divisions : FALLBACK_DIVISIONS;
+
   return (
     <div className="space-y-12 pb-16">
+      {/* =========================================================================
+          DATABASE WAKE-UP & CONNECTION REASSURANCE BANNERS
+          ========================================================================= */}
+      {isDbWakingUp && (
+        <div className="max-w-7xl mx-auto px-4 pt-4">
+          <div className="bg-gradient-to-r from-amber-50 via-amber-100/70 to-amber-50 border border-brand-yellow text-brand-dark px-4 py-3 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shadow-md animate-fade-in">
+            <div className="flex items-center gap-3">
+              <span className="relative flex h-3 w-3 flex-shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+              </span>
+              <div>
+                <span className="font-extrabold text-amber-950">Waking up catalog database...</span>{' '}
+                <span className="text-amber-800">
+                  The database is spinning up after inactivity. Connecting to fetch latest live products & services.
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 font-bold text-amber-900 bg-white/70 px-3 py-1 rounded-full border border-amber-200">
+              <div className="w-3.5 h-3.5 border-2 border-brand-red border-t-transparent rounded-full animate-spin" />
+              <span>Connecting (Attempt {connectionAttempt}/3)...</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isUsingFallback && !isLiveConnected && (
+        <div className="max-w-7xl mx-auto px-4 pt-2">
+          <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200 text-emerald-950 px-4 py-3 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shadow-sm">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+              <span>
+                <strong>Catalog Available:</strong> Displaying full catalog preview while live database connects in the background.
+              </span>
+            </div>
+            <button
+              onClick={() => loadData(true)}
+              disabled={isConnecting}
+              className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-4 py-1.5 rounded-full text-xs shadow transition disabled:opacity-50 whitespace-nowrap"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isConnecting ? 'animate-spin' : ''}`} />
+              <span>{isConnecting ? 'Reconnecting...' : 'Sync Live DB'}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          FIRST-TIME VISITOR SKELETON LOADER (WHILE DATABASE IS WAKING UP)
+          ========================================================================= */}
+      {loading && !hasCachedData && (
+        <div className="max-w-7xl mx-auto px-4 space-y-10 pt-4 animate-pulse">
+          {/* Skeleton Categories */}
+          <div className="space-y-3">
+            <div className="h-6 w-48 bg-gray-200 rounded-lg" />
+            <div className="flex gap-4 overflow-hidden">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="w-36 h-36 bg-gray-100 border border-gray-200 rounded-2xl flex flex-col items-center justify-center p-4 gap-2 flex-shrink-0">
+                  <div className="w-12 h-12 rounded-xl bg-gray-200" />
+                  <div className="w-20 h-3 bg-gray-200 rounded" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Skeleton Hero Banner */}
+          <div className="w-full h-80 sm:h-96 rounded-3xl bg-gray-200 relative overflow-hidden flex flex-col justify-end p-8 gap-4">
+            <div className="h-5 w-32 bg-gray-300 rounded-full" />
+            <div className="h-10 w-3/4 max-w-md bg-gray-300 rounded-lg" />
+            <div className="h-4 w-1/2 max-w-sm bg-gray-300 rounded" />
+            <div className="h-10 w-40 bg-gray-300 rounded-full mt-2" />
+          </div>
+
+          {/* Skeleton Product Row */}
+          <div className="space-y-3">
+            <div className="h-6 w-56 bg-gray-200 rounded-lg" />
+            <div className="flex gap-4 overflow-hidden">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="w-72 h-80 bg-gray-100 border border-gray-200 rounded-2xl p-4 flex flex-col gap-3 flex-shrink-0">
+                  <div className="w-full h-44 bg-gray-200 rounded-xl" />
+                  <div className="w-3/4 h-4 bg-gray-200 rounded" />
+                  <div className="w-1/2 h-4 bg-gray-200 rounded" />
+                  <div className="w-24 h-5 bg-gray-200 rounded mt-auto" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* =========================================================================
           DYNAMIC CATEGORIES HORIZONTAL SCROLLER
           ========================================================================= */}
       {categories.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 pt-6">
+        <section className="max-w-7xl mx-auto px-4 pt-4">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-2xl sm:text-3xl font-black text-brand-dark relative inline-block pb-2">
@@ -492,9 +937,9 @@ export default function HomePage() {
       </section>
 
       {/* =========================================================================
-          DYNAMIC ORDER-AWARE BUSINESS DIVISION SECTIONS
+          ORDER-AWARE BUSINESS DIVISION SECTIONS
           ========================================================================= */}
-      {(divisions || []).map((div) => {
+      {effectiveDivisions.map((div) => {
         const nameLower = (div.name || '').toLowerCase();
 
         // 1. Photography & Videography
@@ -681,7 +1126,7 @@ export default function HomePage() {
           );
         }
 
-        // 4. Consultancy Services
+        // 5. Consultancy Services
         if (nameLower.includes('consult')) {
           if (consultancyServices.length === 0) return null;
           return (
@@ -726,7 +1171,7 @@ export default function HomePage() {
           );
         }
 
-        // 5. Food & Beverages
+        // 6. Food & Beverages
         if (nameLower.includes('food') || nameLower.includes('beverage') || nameLower.includes('drink')) {
           if (foodProducts.length === 0) return null;
           return (
@@ -771,7 +1216,7 @@ export default function HomePage() {
           );
         }
 
-        // 6. Clothes & Shoes
+        // 7. Clothes & Shoes
         if (nameLower.includes('cloth') || nameLower.includes('shoe') || nameLower.includes('fashion') || nameLower.includes('apparel')) {
           if (clothesProducts.length === 0) return null;
           return (
@@ -816,7 +1261,7 @@ export default function HomePage() {
           );
         }
 
-        // 7. Generic / Newly Created Custom Business Division
+        // 8. Generic / Newly Created Custom Business Division
         const customProds = allProducts.filter(p => p.businessDivisionId === div.id || (p.businessDivision?.name || '').toLowerCase() === nameLower);
         const customSrvs = allServices.filter(s => s.businessDivisionId === div.id || (s.businessDivision?.name || '').toLowerCase() === nameLower);
 

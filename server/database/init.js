@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
-import prisma from './prisma.js';
+import prisma, { withDbRetry } from './prisma.js';
 
 async function ensureTablesExist() {
   if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('sqlite') && !process.env.DATABASE_URL.includes('.db')) {
@@ -288,6 +288,20 @@ async function ensureTablesExist() {
 }
 
 export async function autoMigrateDatabase() {
+  // Fast check: if database is already awake and initialized, avoid running 60+ sequential DDL/upsert queries
+  try {
+    const existingCount = await withDbRetry(
+      () => prisma.businessDivision.count(),
+      { maxRetries: 3, initialDelayMs: 1500, operationName: 'Verify database initialization' }
+    );
+    if (existingCount > 0) {
+      console.log(`✅ Database is connected and verified ready (${existingCount} business divisions found).`);
+      return;
+    }
+  } catch (err) {
+    console.log('⚡ Initializing database schema & tables (tables may not exist yet or database was cold)...');
+  }
+
   await ensureTablesExist();
 
   // Always ensure all essential system roles and brand settings exist

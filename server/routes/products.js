@@ -1,5 +1,5 @@
 import express from 'express';
-import prisma from '../database/prisma.js';
+import prisma, { withDbRetry } from '../database/prisma.js';
 import { authenticateToken, hasPermission } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -33,30 +33,36 @@ router.get('/', async (req, res) => {
     };
 
     if (division) {
-      const foundDiv = await prisma.businessDivision.findFirst({
-        where: {
-          OR: [
-            { slug: division },
-            { name: division },
-            { name: { contains: division } }
-          ]
-        }
-      });
+      const foundDiv = await withDbRetry(
+        () => prisma.businessDivision.findFirst({
+          where: {
+            OR: [
+              { slug: division },
+              { name: division },
+              { name: { contains: division } }
+            ]
+          }
+        }),
+        { maxRetries: 3, initialDelayMs: 1200, operationName: 'Find division for products' }
+      );
       if (foundDiv) {
         where.businessDivisionId = foundDiv.id;
       }
     }
 
     if (category) {
-      const foundCat = await prisma.category.findFirst({
-        where: {
-          OR: [
-            { slug: category },
-            { name: category },
-            { name: { contains: category } }
-          ]
-        }
-      });
+      const foundCat = await withDbRetry(
+        () => prisma.category.findFirst({
+          where: {
+            OR: [
+              { slug: category },
+              { name: category },
+              { name: { contains: category } }
+            ]
+          }
+        }),
+        { maxRetries: 3, initialDelayMs: 1200, operationName: 'Find category for products' }
+      );
       if (foundCat) {
         where.categoryId = foundCat.id;
       }
@@ -81,20 +87,23 @@ router.get('/', async (req, res) => {
       if (maxPrice) where.salePrice.lte = parseFloat(maxPrice);
     }
 
-    const [total, products] = await Promise.all([
-      prisma.product.count({ where }),
-      prisma.product.findMany({
-        where,
-        include: {
-          businessDivision: true,
-          category: true,
-          variants: true,
-        },
-        orderBy: { createdAt: 'desc' },
-        take: parseInt(limit, 10),
-        skip: parseInt(offset, 10),
-      })
-    ]);
+    const [total, products] = await withDbRetry(
+      () => Promise.all([
+        prisma.product.count({ where }),
+        prisma.product.findMany({
+          where,
+          include: {
+            businessDivision: true,
+            category: true,
+            variants: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: parseInt(limit, 10),
+          skip: parseInt(offset, 10),
+        })
+      ]),
+      { maxRetries: 3, initialDelayMs: 1500, operationName: 'List products' }
+    );
 
     const formatted = products.map(p => ({
       ...p,
@@ -112,14 +121,17 @@ router.get('/', async (req, res) => {
  */
 router.get('/:id', async (req, res) => {
   try {
-    const product = await prisma.product.findUnique({
-      where: { id: req.params.id },
-      include: {
-        businessDivision: true,
-        category: true,
-        variants: true,
-      }
-    });
+    const product = await withDbRetry(
+      () => prisma.product.findUnique({
+        where: { id: req.params.id },
+        include: {
+          businessDivision: true,
+          category: true,
+          variants: true,
+        }
+      }),
+      { maxRetries: 3, initialDelayMs: 1200, operationName: 'Get product by ID' }
+    );
 
     if (!product) {
       return res.status(404).json({ error: 'Product not found' });

@@ -1,5 +1,5 @@
 import express from 'express';
-import prisma from '../database/prisma.js';
+import prisma, { withDbRetry } from '../database/prisma.js';
 import { authenticateToken, hasPermission } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -16,57 +16,49 @@ function slugify(text) {
  */
 router.get('/', async (req, res) => {
   try {
-    let divisions;
-    try {
-      divisions = await prisma.businessDivision.findMany({
-        include: {
-          categories: true,
-          _count: { select: { products: true, services: true } }
-        },
-        orderBy: [
-          { sortOrder: 'asc' },
-          { createdAt: 'asc' }
-        ]
-      });
-    } catch (dbErr) {
-      // Column sortOrder might be missing on remote DB, add it immediately!
-      try {
-        const isMysql = process.env.DATABASE_URL && (process.env.DATABASE_URL.includes('mysql:') || process.env.DATABASE_URL.includes('mysql://'));
-        if (isMysql) {
-          await prisma.$executeRawUnsafe(`ALTER TABLE BusinessDivision ADD COLUMN sortOrder INT NOT NULL DEFAULT 0;`).catch(() => {});
-        } else {
-          await prisma.$executeRawUnsafe(`ALTER TABLE "BusinessDivision" ADD COLUMN IF NOT EXISTS "sortOrder" INTEGER NOT NULL DEFAULT 0;`).catch(() => {});
-        }
-        divisions = await prisma.businessDivision.findMany({
-          include: {
-            categories: true,
-            _count: { select: { products: true, services: true } }
-          },
-          orderBy: [
-            { sortOrder: 'asc' },
-            { createdAt: 'asc' }
-          ]
-        });
-      } catch (retryErr) {
-        // Fallback to raw query without sortOrder
+    const divisions = await withDbRetry(
+      async () => {
         try {
-          const rawDivs = await prisma.$queryRawUnsafe(`
-            SELECT id, name, slug, description, image, tag, "createdAt"
-            FROM "BusinessDivision"
-            ORDER BY "createdAt" ASC
-          `);
-          const allCats = await prisma.category.findMany().catch(() => []);
-          divisions = rawDivs.map(d => ({
-            ...d,
-            sortOrder: 0,
-            categories: allCats.filter(c => c.businessDivisionId === d.id),
-            _count: { products: 0, services: 0 }
-          }));
-        } catch {
-          divisions = [];
+          return await prisma.businessDivision.findMany({
+            include: {
+              categories: true,
+              _count: { select: { products: true, services: true } }
+            },
+            orderBy: [
+              { sortOrder: 'asc' },
+              { createdAt: 'asc' }
+            ]
+          });
+        } catch (dbErr) {
+          // If error is about missing sortOrder column, attempt to add it
+          const isColumnMissing = dbErr.message && (dbErr.message.includes('sortOrder') || dbErr.message.includes('column'));
+          if (isColumnMissing) {
+            try {
+              const isMysql = process.env.DATABASE_URL && (process.env.DATABASE_URL.includes('mysql:') || process.env.DATABASE_URL.includes('mysql://'));
+              if (isMysql) {
+                await prisma.$executeRawUnsafe(`ALTER TABLE BusinessDivision ADD COLUMN sortOrder INT NOT NULL DEFAULT 0;`).catch(() => {});
+              } else {
+                await prisma.$executeRawUnsafe(`ALTER TABLE "BusinessDivision" ADD COLUMN IF NOT EXISTS "sortOrder" INTEGER NOT NULL DEFAULT 0;`).catch(() => {});
+              }
+              return await prisma.businessDivision.findMany({
+                include: {
+                  categories: true,
+                  _count: { select: { products: true, services: true } }
+                },
+                orderBy: [
+                  { sortOrder: 'asc' },
+                  { createdAt: 'asc' }
+                ]
+              });
+            } catch (_) {}
+          }
+          // Re-throw so withDbRetry can retry if it was a connection/sleep error
+          throw dbErr;
         }
-      }
-    }
+      },
+      { maxRetries: 3, initialDelayMs: 1500, operationName: 'List business divisions' }
+    );
+
     return res.json({ divisions: divisions || [] });
   } catch (err) {
     return res.status(500).json({ error: err.message });

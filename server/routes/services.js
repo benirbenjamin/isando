@@ -1,5 +1,5 @@
 import express from 'express';
-import prisma from '../database/prisma.js';
+import prisma, { withDbRetry } from '../database/prisma.js';
 import { authenticateToken, hasPermission } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -25,32 +25,38 @@ router.get('/', async (req, res) => {
     const where = { status: 'ACTIVE' };
 
     if (division) {
-      const foundDiv = await prisma.businessDivision.findFirst({
-        where: {
-          OR: [
-            { id: division },
-            { slug: division },
-            { name: division },
-            { name: { contains: division } }
-          ]
-        }
-      });
+      const foundDiv = await withDbRetry(
+        () => prisma.businessDivision.findFirst({
+          where: {
+            OR: [
+              { id: division },
+              { slug: division },
+              { name: division },
+              { name: { contains: division } }
+            ]
+          }
+        }),
+        { maxRetries: 3, initialDelayMs: 1200, operationName: 'Find division for services' }
+      );
       if (foundDiv) {
         where.businessDivisionId = foundDiv.id;
       }
     }
 
     if (category) {
-      const foundCat = await prisma.category.findFirst({
-        where: {
-          OR: [
-            { id: category },
-            { slug: category },
-            { name: category },
-            { name: { contains: category } }
-          ]
-        }
-      });
+      const foundCat = await withDbRetry(
+        () => prisma.category.findFirst({
+          where: {
+            OR: [
+              { id: category },
+              { slug: category },
+              { name: category },
+              { name: { contains: category } }
+            ]
+          }
+        }),
+        { maxRetries: 3, initialDelayMs: 1200, operationName: 'Find category for services' }
+      );
       if (foundCat) {
         where.categoryId = foundCat.id;
       }
@@ -65,15 +71,18 @@ router.get('/', async (req, res) => {
 
     if (isFeatured === 'true') where.isFeatured = true;
 
-    const services = await prisma.service.findMany({
-      where,
-      include: {
-        businessDivision: true,
-        category: true,
-      },
-      orderBy: { createdAt: 'desc' },
-      take: parseInt(limit, 10),
-    });
+    const services = await withDbRetry(
+      () => prisma.service.findMany({
+        where,
+        include: {
+          businessDivision: true,
+          category: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: parseInt(limit, 10),
+      }),
+      { maxRetries: 3, initialDelayMs: 1500, operationName: 'List services' }
+    );
 
     const formatted = services.map(s => ({
       ...s,
@@ -92,13 +101,16 @@ router.get('/', async (req, res) => {
  */
 router.get('/:id', async (req, res) => {
   try {
-    const service = await prisma.service.findUnique({
-      where: { id: req.params.id },
-      include: {
-        businessDivision: true,
-        category: true,
-      }
-    });
+    const service = await withDbRetry(
+      () => prisma.service.findUnique({
+        where: { id: req.params.id },
+        include: {
+          businessDivision: true,
+          category: true,
+        }
+      }),
+      { maxRetries: 3, initialDelayMs: 1200, operationName: 'Get service by ID' }
+    );
 
     if (!service) return res.status(404).json({ error: 'Service not found' });
 
