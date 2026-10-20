@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import app from './app.js';
 import { autoMigrateDatabase } from './database/init.js';
+import { initYouTubeAutoSync } from './services/youtubeSyncService.js';
 
 dotenv.config();
 
@@ -51,4 +52,5 @@ const PORT = process.env.PORT || 5000;
 server.listen(PORT, async () => {
   console.log(`🚀 Romantic T Solutions Backend API server running on port ${PORT}`);
   await autoMigrateDatabase();
+  initYouTubeAutoSync();
 });

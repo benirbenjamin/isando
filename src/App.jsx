@@ -12,6 +12,7 @@ import ServicesPage from './pages/ServicesPage';
 import ServiceDetailPage from './pages/ServiceDetailPage';
 import AboutPage from './pages/AboutPage';
 import ContactPage from './pages/ContactPage';
+import VideosPage from './pages/VideosPage';
 
 // Auth Page
 import LoginPage from './pages/LoginPage';
@@ -24,6 +25,7 @@ import InventoryPage from './pages/InventoryPage';
 import SalesPage from './pages/SalesPage';
 import ProductsManagementPage from './pages/ProductsManagementPage';
 import ServicesManagementPage from './pages/ServicesManagementPage';
+import VideosManagementPage from './pages/VideosManagementPage';
 import CategoriesPage from './pages/CategoriesPage';
 import EventsPage from './pages/EventsPage';
 import EventCommandCenterPage from './pages/EventCommandCenterPage';
@@ -52,6 +54,7 @@ export default function App() {
           <Route path="/services" element={<ServicesPage />} />
           <Route path="/services/:id" element={<ServiceDetailPage />} />
           <Route path="/about" element={<AboutPage />} />
+          <Route path="/videos" element={<VideosPage />} />
           <Route path="/contact" element={<ContactPage />} />
         </Route>
 
@@ -67,6 +70,7 @@ export default function App() {
           <Route path="/sales" element={<SalesPage />} />
           <Route path="/products-management" element={<ProductsManagementPage />} />
           <Route path="/services-management" element={<ServicesManagementPage />} />
+          <Route path="/videos-management" element={<VideosManagementPage />} />
           <Route path="/categories" element={<CategoriesPage />} />
           <Route path="/events" element={<EventsPage />} />
           <Route path="/events/:id" element={<EventCommandCenterPage />} />

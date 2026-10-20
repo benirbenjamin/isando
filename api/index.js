@@ -27,7 +27,8 @@ export default async function handler(req, res) {
       req.url?.startsWith('/api/products') ||
       req.url?.startsWith('/api/services') ||
       req.url?.startsWith('/api/divisions') ||
-      req.url?.startsWith('/api/categories')
+      req.url?.startsWith('/api/categories') ||
+      req.url?.startsWith('/api/videos')
     );
 
     if (!isPublicGet) {

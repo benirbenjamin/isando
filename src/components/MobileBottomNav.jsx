@@ -19,6 +19,7 @@ export default function MobileBottomNav({ onOpenMobileMenu }) {
     location.pathname.startsWith('/finance') ||
     location.pathname.startsWith('/products-management') ||
     location.pathname.startsWith('/services-management') ||
+    location.pathname.startsWith('/videos-management') ||
     location.pathname.startsWith('/workers') ||
     location.pathname.startsWith('/categories') ||
     location.pathname.startsWith('/settings');

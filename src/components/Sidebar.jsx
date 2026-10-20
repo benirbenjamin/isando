@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, BarChart3, DollarSign, Package, ShoppingCart, 
   Calendar, CheckSquare, Megaphone, MessageSquare, Users, Shield, 
-  Settings, FileText, Activity, LogOut, Tags, Layers
+  Settings, FileText, Activity, LogOut, Tags, Layers, Video
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
@@ -60,6 +60,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
     { label: 'Internal Messages', path: '/messages', icon: MessageSquare, perm: null, badge: badges.messages, badgeColor: 'bg-blue-600' },
     { label: 'Products Management', path: '/products-management', icon: Package, perm: 'products.view' },
     { label: 'Services Management', path: '/services-management', icon: Layers, perm: 'services.view' },
+    { label: 'Videos & Media', path: '/videos-management', icon: Video, perm: null },
     { label: 'Divisions & Categories', path: '/categories', icon: Tags, perm: 'products.create' },
     { label: 'Workers & Staff', path: '/workers', icon: Users, perm: 'users.view' },
     { label: 'Roles & Permissions', path: '/roles', icon: Shield, perm: 'users.create' },

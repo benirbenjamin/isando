@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, MessageCircle, LogIn, LayoutDashboard, Home, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, MessageCircle, LogIn, LayoutDashboard, Home, ChevronLeft, ChevronRight, Video } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api, getWhatsAppLink } from '../services/api';
 
@@ -125,6 +125,10 @@ export default function Navbar() {
             <Link to="/products" className="hidden lg:inline-block px-3 py-1.5 text-sm font-semibold text-gray-700 hover:text-brand-red">
               Products
             </Link>
+            <Link to="/videos" className="hidden md:inline-flex items-center gap-1 px-3 py-1.5 text-sm font-semibold text-gray-700 hover:text-brand-red">
+              <Video className="w-4 h-4 text-brand-red" />
+              <span>Videos</span>
+            </Link>
             <Link to="/services" className="hidden lg:inline-block px-3 py-1.5 text-sm font-semibold text-gray-700 hover:text-brand-red">
               Services
             </Link>
@@ -210,6 +214,15 @@ export default function Navbar() {
                 </Link>
               );
             })}
+
+            {/* Videos Pill */}
+            <Link
+              to="/videos"
+              className="px-3.5 py-1.5 rounded-full border border-red-200 bg-red-50 text-brand-red hover:bg-brand-red hover:text-white transition flex-shrink-0 flex items-center gap-1.5 whitespace-nowrap font-bold shadow-sm"
+            >
+              <Video className="w-3.5 h-3.5" />
+              <span>Watch Videos</span>
+            </Link>
 
             {/* Special Offers Pill */}
             <Link

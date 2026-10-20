@@ -388,3 +388,22 @@ model Setting {
   category    String   @default("GENERAL") // GENERAL, EMAIL, STORAGE, HOMEPAGE
   updatedAt   DateTime @updatedAt
 }
+
+model Video {
+  id           String   @id @default(uuid())
+  title        String
+  description  String?  @db.Text
+  videoUrl     String   @db.Text
+  youtubeId    String?
+  thumbnailUrl String?  @db.Text
+  sourceType   String   @default("YOUTUBE") // YOUTUBE, UPLOAD
+  channelId    String?
+  duration     String?
+  viewsCount   Int      @default(0)
+  isFeatured   Boolean  @default(false)
+  sortOrder    Int      @default(0)
+  status       String   @default("ACTIVE") // ACTIVE, HIDDEN
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+

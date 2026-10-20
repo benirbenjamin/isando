@@ -213,6 +213,7 @@ export default function Footer() {
           <ul className="space-y-2 text-xs">
             <li><Link to="/products" className="hover:text-brand-yellow">Products Catalog</Link></li>
             <li><Link to="/services" className="hover:text-brand-yellow">Service Offerings</Link></li>
+            <li><Link to="/videos" className="hover:text-brand-yellow">Videos & Media</Link></li>
             <li><Link to="/about" className="hover:text-brand-yellow">About Our Company</Link></li>
             <li><Link to="/contact" className="hover:text-brand-yellow">Contact Us</Link></li>
             <li><Link to="/login" className="hover:text-brand-yellow font-semibold text-brand-yellow">Employee / Admin Login</Link></li>

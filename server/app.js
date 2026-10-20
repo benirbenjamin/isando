@@ -26,6 +26,7 @@ import auditLogsRoutes from './routes/auditLogs.js';
 import settingsRoutes from './routes/settings.js';
 import uploadRoutes from './routes/upload.js';
 import customersRoutes from './routes/customers.js';
+import videoRoutes from './routes/videos.js';
 import prisma from './database/prisma.js';
 
 dotenv.config();
@@ -65,6 +66,7 @@ app.use('/api/finance', financeRoutes);
 app.use('/api/audit-log', auditLogsRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/videos', videoRoutes);
 
 // Health check & Database Diagnostic endpoints
 app.get('/api/health', (req, res) => {

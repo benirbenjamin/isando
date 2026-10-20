@@ -3,6 +3,77 @@ import path from 'path';
 import bcrypt from 'bcryptjs';
 import prisma, { withDbRetry } from './prisma.js';
 
+async function ensureVideoTable() {
+  try {
+    const dbUrl = process.env.DATABASE_URL || '';
+    const isMysql = dbUrl.includes('mysql:') || dbUrl.includes('mysql://');
+    const isPostgres = dbUrl.includes('postgres:') || dbUrl.includes('postgresql://');
+    if (isMysql) {
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS Video (
+          id VARCHAR(191) NOT NULL PRIMARY KEY,
+          title VARCHAR(255) NOT NULL,
+          description TEXT,
+          videoUrl TEXT NOT NULL,
+          youtubeId VARCHAR(100),
+          thumbnailUrl TEXT,
+          sourceType VARCHAR(50) NOT NULL DEFAULT 'YOUTUBE',
+          channelId VARCHAR(100),
+          duration VARCHAR(50),
+          viewsCount INT NOT NULL DEFAULT 0,
+          isFeatured BOOLEAN NOT NULL DEFAULT FALSE,
+          sortOrder INT NOT NULL DEFAULT 0,
+          status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+          createdAt DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+          updatedAt DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
+        );
+      `).catch(() => {});
+    } else if (isPostgres) {
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "Video" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "title" TEXT NOT NULL,
+          "description" TEXT,
+          "videoUrl" TEXT NOT NULL,
+          "youtubeId" TEXT,
+          "thumbnailUrl" TEXT,
+          "sourceType" TEXT NOT NULL DEFAULT 'YOUTUBE',
+          "channelId" TEXT,
+          "duration" TEXT,
+          "viewsCount" INTEGER NOT NULL DEFAULT 0,
+          "isFeatured" BOOLEAN NOT NULL DEFAULT FALSE,
+          "sortOrder" INTEGER NOT NULL DEFAULT 0,
+          "status" TEXT NOT NULL DEFAULT 'ACTIVE',
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+      `).catch(() => {});
+    } else {
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "Video" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "title" TEXT NOT NULL,
+          "description" TEXT,
+          "videoUrl" TEXT NOT NULL,
+          "youtubeId" TEXT,
+          "thumbnailUrl" TEXT,
+          "sourceType" TEXT NOT NULL DEFAULT 'YOUTUBE',
+          "channelId" TEXT,
+          "duration" TEXT,
+          "viewsCount" INTEGER NOT NULL DEFAULT 0,
+          "isFeatured" BOOLEAN NOT NULL DEFAULT 0,
+          "sortOrder" INTEGER NOT NULL DEFAULT 0,
+          "status" TEXT NOT NULL DEFAULT 'ACTIVE',
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+      `).catch(() => {});
+    }
+  } catch (_) {
+    // DDL safe ignore
+  }
+}
+
 async function ensureTablesExist() {
   if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('sqlite') && !process.env.DATABASE_URL.includes('.db')) {
     const isMysql = process.env.DATABASE_URL.includes('mysql:') || process.env.DATABASE_URL.includes('mysql://');
@@ -288,6 +359,7 @@ async function ensureTablesExist() {
 }
 
 export async function autoMigrateDatabase() {
+  await ensureVideoTable();
   // Fast check: if database is already awake and initialized, avoid running 60+ sequential DDL/upsert queries
   try {
     const existingCount = await withDbRetry(
@@ -296,6 +368,37 @@ export async function autoMigrateDatabase() {
     );
     if (existingCount > 0) {
       console.log(`✅ Database is connected and verified ready (${existingCount} business divisions found).`);
+
+      // Ensure initial featured videos exist if empty
+      try {
+        const vidCount = await prisma.video.count().catch(() => 0);
+        if (vidCount === 0) {
+          await prisma.video.createMany({
+            data: [
+              {
+                title: 'Romantic T Solutions - Cinematic Wedding Production & Highlights',
+                description: 'Experience the magic of romantic weddings captured in stunning 4K cinematography by Romantic T Solutions Ltd.',
+                videoUrl: 'https://www.youtube.com/watch?v=LXb3EKWsInQ',
+                youtubeId: 'LXb3EKWsInQ',
+                thumbnailUrl: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=80',
+                sourceType: 'YOUTUBE',
+                isFeatured: true,
+                sortOrder: 1,
+              },
+              {
+                title: 'Executive Bridal Convoy & Luxury Car Fleet in Rwanda',
+                description: 'Uniformed VIP chauffeurs, Mercedes-Benz, and V8 Land Cruiser convoy for executive bridal transport.',
+                videoUrl: 'https://www.youtube.com/watch?v=7wtfhZwyrcc',
+                youtubeId: '7wtfhZwyrcc',
+                thumbnailUrl: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=1200&q=80',
+                sourceType: 'YOUTUBE',
+                isFeatured: true,
+                sortOrder: 2,
+              }
+            ]
+          }).catch(() => {});
+        }
+      } catch (_) {}
       return;
     }
   } catch (err) {

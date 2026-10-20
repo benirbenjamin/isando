@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   ChevronLeft, ChevronRight, Sparkles, MessageCircle, HeartHandshake,
   Briefcase, ArrowRight, Utensils, Shirt, Flame, Camera, Car, RefreshCw,
-  Database, ShieldCheck
+  Database, ShieldCheck, Video, Play
 } from 'lucide-react';
 import { api, getWhatsAppLink, getImageUrl, getImageBackupUrl } from '../services/api';
 import ProductCard from '../components/ProductCard';
@@ -85,6 +85,17 @@ const DEFAULT_FEATURED_SLIDES = [
     description: 'Executive corporate protocol advisory, end-to-end event production, budget optimization and SME business development.',
     image: 'https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1600&q=80',
     ctaText: 'Consult Our Experts',
+  },
+  {
+    id: 'feat-slide-video',
+    _type: 'video',
+    targetUrl: '/videos',
+    name: 'Experience Our Cinematic Video Highlights',
+    badge: 'Featured Video & Media',
+    divisionName: 'Cinematic Media',
+    description: 'Watch 4K highlights from our luxury weddings, royal ceremonies, corporate events & bridal convoys.',
+    image: 'https://images.unsplash.com/photo-1518173946687-a4c8a383392e?auto=format&fit=crop&w=1600&q=80',
+    ctaText: 'Watch Videos Now',
   }
 ];
 
@@ -323,6 +334,7 @@ export default function HomePage() {
   const [clothesProducts, setClothesProducts] = useState([]);
   const [itProducts, setItProducts] = useState([]);
   const [specialOffers, setSpecialOffers] = useState([]);
+  const [featuredVideos, setFeaturedVideos] = useState([]);
   const [currentSlide, setCurrentSlide] = useState(0);
 
   // Connection & Database Sleep State
@@ -335,14 +347,16 @@ export default function HomePage() {
   const [hasCachedData, setHasCachedData] = useState(false);
 
   // Categorize and structure raw items into division buckets
-  const applyCatalog = useCallback((prods = [], srvs = [], divs = []) => {
+  const applyCatalog = useCallback((prods = [], srvs = [], divs = [], vids = []) => {
     const rawProds = Array.isArray(prods) ? prods : [];
     const rawSrvs = Array.isArray(srvs) ? srvs : [];
     const rawDivs = Array.isArray(divs) && divs.length > 0 ? divs : FALLBACK_DIVISIONS;
+    const rawVids = Array.isArray(vids) ? vids : [];
 
     setDivisions(rawDivs);
     setAllProducts(rawProds);
     setAllServices(rawSrvs);
+    setFeaturedVideos(rawVids);
 
     // Extract dynamic categories across divisions
     const dynamicCats = [];
@@ -401,7 +415,24 @@ export default function HomePage() {
       ctaText: 'Explore Service',
     }));
 
-    const dynamicFeatured = [...featP, ...featS];
+    const featV = rawVids.filter(v => v.isFeatured).map(v => {
+      const thumb = v.thumbnailUrl || (v.youtubeId ? `https://i.ytimg.com/vi/${v.youtubeId}/hqdefault.jpg` : null);
+      return {
+        id: v.id,
+        _type: 'video',
+        targetUrl: `/videos?play=${v.id}`,
+        name: v.title,
+        badge: 'Featured Video Spotlight',
+        divisionName: v.sourceType === 'YOUTUBE' ? 'YouTube Production' : 'Exclusive Video',
+        description: v.description || 'Watch our premier cinematography and video production.',
+        image: getImageUrl(thumb, 'https://images.unsplash.com/photo-1518173946687-a4c8a383392e?auto=format&fit=crop&w=1600&q=80'),
+        ctaText: 'Watch Video Now',
+        isYouTube: v.sourceType === 'YOUTUBE',
+        youtubeId: v.youtubeId
+      };
+    });
+
+    const dynamicFeatured = [...featP, ...featS, ...featV];
     if (dynamicFeatured.length > 0) {
       setFeaturedItems(dynamicFeatured);
     } else {
@@ -539,22 +570,25 @@ export default function HomePage() {
         const [divRes, prodRes, srvRes] = await Promise.all([
           api.get('/divisions', { retries: 2, delayMs: 1200 }),
           api.get('/products?limit=100', { retries: 2, delayMs: 1200 }),
-          api.get('/services?limit=100', { retries: 2, delayMs: 1200 })
+          api.get('/services?limit=100', { retries: 2, delayMs: 1200 }),
+          api.get('/videos?limit=20', { retries: 2, delayMs: 1200 }).catch(() => ({ videos: [] }))
         ]);
 
         const prods = Array.isArray(prodRes?.products) ? prodRes.products : [];
         const srvs = Array.isArray(srvRes?.services) ? srvRes.services : [];
         const divs = Array.isArray(divRes?.divisions) ? divRes.divisions : [];
+        const vids = Array.isArray(vidRes?.videos) ? vidRes.videos : [];
 
         // If database returned catalog items, populate and cache
-        if (prods.length > 0 || srvs.length > 0 || divs.length > 0) {
-          applyCatalog(prods, srvs, divs);
+        if (prods.length > 0 || srvs.length > 0 || divs.length > 0 || vids.length > 0) {
+          applyCatalog(prods, srvs, divs, vids);
 
           try {
             localStorage.setItem('romantic_home_cache_v2', JSON.stringify({
               products: prods,
               services: srvs,
               divisions: divs,
+              videos: vids,
               timestamp: Date.now()
             }));
           } catch (_) {}
@@ -587,7 +621,7 @@ export default function HomePage() {
       setAllProducts(prevProds => {
         if (prevProds.length === 0) {
           console.info('🛡️ Activating high-availability baseline catalog while database wakes up.');
-          applyCatalog(FALLBACK_PRODUCTS, FALLBACK_SERVICES, FALLBACK_DIVISIONS);
+          applyCatalog(FALLBACK_PRODUCTS, FALLBACK_SERVICES, FALLBACK_DIVISIONS, []);
           setIsUsingFallback(true);
         }
         return prevProds;
@@ -606,7 +640,7 @@ export default function HomePage() {
       if (cached) {
         const parsed = JSON.parse(cached);
         if ((parsed.products && parsed.products.length > 0) || (parsed.services && parsed.services.length > 0)) {
-          applyCatalog(parsed.products || [], parsed.services || [], parsed.divisions || []);
+          applyCatalog(parsed.products || [], parsed.services || [], parsed.divisions || [], parsed.videos || []);
           setLoading(false);
           setHasCachedData(true);
         }
@@ -892,7 +926,8 @@ export default function HomePage() {
                 {/* Slide Text Content */}
                 <div className="absolute inset-0 flex flex-col justify-end p-6 sm:p-10 md:p-14 max-w-2xl text-white space-y-3 z-10">
                   <div className="flex items-center gap-2">
-                    <span className="bg-brand-yellow text-brand-dark text-[11px] sm:text-xs font-black px-3.5 py-1 rounded-full uppercase tracking-wider shadow">
+                    <span className="bg-brand-yellow text-brand-dark text-[11px] sm:text-xs font-black px-3.5 py-1 rounded-full uppercase tracking-wider shadow flex items-center gap-1.5">
+                      {item._type === 'video' && <Video className="w-3.5 h-3.5 text-brand-red" />}
                       {item.badge || item.divisionName || 'SPOTLIGHT'}
                     </span>
                     <span className="text-white/80 text-xs font-semibold hidden sm:inline">
@@ -908,13 +943,30 @@ export default function HomePage() {
                     {item.description}
                   </p>
 
+                {/* Floating Play Indicator for Video Slides */}
+                {item._type === 'video' && (
+                  <Link
+                    to={item.targetUrl}
+                    className="absolute top-1/2 right-8 md:right-20 -translate-y-1/2 z-20 hidden sm:flex flex-col items-center gap-2 group/playbtn"
+                    title="Play Video"
+                  >
+                    <div className="w-20 h-20 rounded-full bg-brand-red/95 text-white flex items-center justify-center shadow-2xl border-4 border-white/80 group-hover/playbtn:scale-110 group-hover/playbtn:bg-red-600 transition duration-300">
+                      <Play className="w-8 h-8 fill-white translate-x-0.5" />
+                    </div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-white bg-black/60 px-3 py-1 rounded-full border border-white/20 backdrop-blur-sm">
+                      Watch Video
+                    </span>
+                  </Link>
+                )}
+
                   <div className="pt-2">
                     <Link
                       to={item.targetUrl || (item._type === 'service' ? `/services/${item.id}` : `/products/${item.id}`)}
                       className="inline-flex items-center gap-2 bg-brand-red hover:bg-brand-redDark text-white px-6 py-3 rounded-full font-bold text-xs sm:text-sm shadow-xl shine-effect transition transform hover:scale-105"
                     >
-                      <span>{item.ctaText || 'Discover Now'}</span>
-                      <ArrowRight className="w-4 h-4" />
+                      {item._type === 'video' ? <Play className="w-4 h-4 fill-white flex-shrink-0" /> : null}
+                      <span>{item.ctaText || (item._type === 'video' ? 'Watch Video' : 'Discover Now')}</span>
+                      {item._type !== 'video' && <ArrowRight className="w-4 h-4" />}
                     </Link>
                   </div>
                 </div>
@@ -935,6 +987,132 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* =========================================================================
+          FEATURED SPOTLIGHT VIDEOS SCROLLER
+          ========================================================================= */}
+      {featuredVideos && featuredVideos.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4">
+          <div className="bg-gradient-to-r from-[#1C1F27] via-[#242938] to-[#1C1F27] border-2 border-brand-yellow/60 rounded-3xl p-5 sm:p-6 text-white shadow-xl relative overflow-hidden">
+            {/* Background glow decoration */}
+            <div className="absolute top-0 right-0 w-80 h-80 bg-brand-yellow/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-80 h-80 bg-brand-red/10 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="inline-flex items-center gap-1 bg-brand-red text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                    Spotlight Video Reel
+                  </span>
+                  <span className="text-brand-yellow font-bold text-xs uppercase tracking-wider">
+                    Cinematic Highlights
+                  </span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+                  <Video className="w-6 h-6 text-brand-yellow" />
+                  <span>Featured Videos in Spotlight</span>
+                </h2>
+                <p className="text-xs text-gray-400">
+                  Watch our latest video releases, wedding films, bridal convoys & commercial productions
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                <Link
+                  to="/videos"
+                  className="text-xs font-bold text-brand-yellow hover:text-white transition flex items-center gap-1 mr-2"
+                >
+                  <span>Explore All Videos</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+                {featuredVideos.length > 3 && (
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => scrollContainer('videos-spotlight-scroller', 'left')}
+                      className="p-2 border border-gray-700 rounded-full bg-gray-800/80 hover:bg-brand-yellow hover:text-brand-dark text-white transition shadow"
+                      aria-label="Previous videos"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => scrollContainer('videos-spotlight-scroller', 'right')}
+                      className="p-2 border border-gray-700 rounded-full bg-gray-800/80 hover:bg-brand-yellow hover:text-brand-dark text-white transition shadow"
+                      aria-label="Next videos"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Scrolling Videos List */}
+            <div
+              id="videos-spotlight-scroller"
+              className="relative z-10 flex gap-4 overflow-x-auto pb-2 scrollbar-none snap-x"
+            >
+              {featuredVideos.map((vid) => {
+                const thumb = vid.thumbnailUrl || (vid.youtubeId ? `https://i.ytimg.com/vi/${vid.youtubeId}/hqdefault.jpg` : '/placeholder-video.jpg');
+                return (
+                  <Link
+                    key={vid.id}
+                    to={`/videos?play=${vid.id}`}
+                    className="group min-w-[260px] sm:min-w-[300px] max-w-[300px] flex-shrink-0 bg-gray-900/90 border border-gray-800 hover:border-brand-yellow rounded-2xl overflow-hidden shadow-lg transition duration-300 hover:-translate-y-1 snap-start flex flex-col"
+                  >
+                    {/* Thumbnail with overlay play icon */}
+                    <div className="relative aspect-video bg-black overflow-hidden">
+                      <img
+                        src={thumb}
+                        alt={vid.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = 'https://images.unsplash.com/photo-1518173946687-a4c8a383392e?auto=format&fit=crop&w=600&q=80';
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition flex items-center justify-center">
+                        <div className="w-12 h-12 rounded-full bg-brand-red/90 text-white flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:bg-brand-red transition">
+                          <Play className="w-5 h-5 fill-white translate-x-0.5" />
+                        </div>
+                      </div>
+                      <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between text-[11px] font-bold">
+                        <span className="bg-black/70 backdrop-blur-sm text-brand-yellow px-2 py-0.5 rounded">
+                          {vid.sourceType === 'YOUTUBE' ? 'YouTube' : 'Uploaded'}
+                        </span>
+                        {vid.duration ? (
+                          <span className="bg-black/80 backdrop-blur-sm text-white px-2 py-0.5 rounded">
+                            {vid.duration}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {/* Meta */}
+                    <div className="p-3.5 flex flex-col flex-1 justify-between gap-2">
+                      <h3 className="font-extrabold text-sm text-white group-hover:text-brand-yellow transition line-clamp-2 leading-snug">
+                        {vid.title}
+                      </h3>
+                      {vid.description && (
+                        <p className="text-xs text-gray-400 line-clamp-1">
+                          {vid.description}
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between pt-1 border-t border-gray-800 text-[11px] text-gray-400">
+                        <span>{vid.viewsCount || 0} views</span>
+                        <span className="text-brand-yellow font-semibold group-hover:underline flex items-center gap-1">
+                          <span>Watch now</span>
+                          <ArrowRight className="w-3 h-3" />
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* =========================================================================
           ORDER-AWARE BUSINESS DIVISION SECTIONS
