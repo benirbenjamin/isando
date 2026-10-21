@@ -30,7 +30,46 @@ function getCategoryEmoji(name = '') {
 }
 
 // Permanent high-impact default featured slides for Romantic T Solutions Ltd
+// Permanent high-impact default featured slides for Romantic T Solutions Ltd
+const DEFAULT_FALLBACK_VIDEOS = [
+  {
+    id: 'vid-default-1',
+    title: 'Romantic T Solutions - Cinematic Wedding Production & Highlights',
+    description: 'Experience the magic of romantic weddings captured in stunning 4K cinematography by Romantic T Solutions Ltd.',
+    videoUrl: 'https://www.youtube.com/watch?v=LXb3EKWsInQ',
+    youtubeId: 'LXb3EKWsInQ',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=80',
+    sourceType: 'YOUTUBE',
+    duration: '4:15',
+    viewsCount: 1420,
+    isFeatured: true,
+  },
+  {
+    id: 'vid-default-2',
+    title: 'Executive Bridal Convoy & Luxury Car Fleet in Rwanda',
+    description: 'Uniformed VIP chauffeurs, Mercedes-Benz, and V8 Land Cruiser convoy for executive bridal transport.',
+    videoUrl: 'https://www.youtube.com/watch?v=7wtfhZwyrcc',
+    youtubeId: '7wtfhZwyrcc',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=1200&q=80',
+    sourceType: 'YOUTUBE',
+    duration: '3:30',
+    viewsCount: 980,
+    isFeatured: true,
+  }
+];
+
 const DEFAULT_FEATURED_SLIDES = [
+  {
+    id: 'feat-slide-video-1',
+    _type: 'video',
+    targetUrl: '/videos',
+    name: 'Romantic T Solutions - Cinematic Wedding Highlights',
+    badge: 'Featured Video Premiere',
+    divisionName: 'Cinematic Media',
+    description: 'Experience pure romance with our high-end 4K multi-camera wedding cinematography and drone footage across Rwanda.',
+    image: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1600&q=80',
+    ctaText: 'Watch Video Now',
+  },
   {
     id: 'feat-slide-1',
     _type: 'service',
@@ -41,6 +80,17 @@ const DEFAULT_FEATURED_SLIDES = [
     description: 'Breathtaking 4K multi-camera wedding films, aerial drone coverage, portraiture & premium heirloom photo albums.',
     image: 'https://images.unsplash.com/photo-1537633552985-df8429e8048b?auto=format&fit=crop&w=1600&q=80',
     ctaText: 'Explore Media Packages',
+  },
+  {
+    id: 'feat-slide-video-2',
+    _type: 'video',
+    targetUrl: '/videos',
+    name: 'Executive Bridal Convoy & Luxury Car Fleet in Rwanda',
+    badge: 'Featured Video Spotlight',
+    divisionName: 'Executive Fleet Video',
+    description: 'VIP Mercedes-Benz, V8 Land Cruisers and Range Rovers with professional uniformed chauffeurs for your memorable day.',
+    image: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=1600&q=80',
+    ctaText: 'Watch Fleet Video',
   },
   {
     id: 'feat-slide-2',
@@ -85,17 +135,6 @@ const DEFAULT_FEATURED_SLIDES = [
     description: 'Executive corporate protocol advisory, end-to-end event production, budget optimization and SME business development.',
     image: 'https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1600&q=80',
     ctaText: 'Consult Our Experts',
-  },
-  {
-    id: 'feat-slide-video',
-    _type: 'video',
-    targetUrl: '/videos',
-    name: 'Experience Our Cinematic Video Highlights',
-    badge: 'Featured Video & Media',
-    divisionName: 'Cinematic Media',
-    description: 'Watch 4K highlights from our luxury weddings, royal ceremonies, corporate events & bridal convoys.',
-    image: 'https://images.unsplash.com/photo-1518173946687-a4c8a383392e?auto=format&fit=crop&w=1600&q=80',
-    ctaText: 'Watch Videos Now',
   }
 ];
 
@@ -334,7 +373,7 @@ export default function HomePage() {
   const [clothesProducts, setClothesProducts] = useState([]);
   const [itProducts, setItProducts] = useState([]);
   const [specialOffers, setSpecialOffers] = useState([]);
-  const [featuredVideos, setFeaturedVideos] = useState([]);
+  const [featuredVideos, setFeaturedVideos] = useState(DEFAULT_FALLBACK_VIDEOS);
   const [currentSlide, setCurrentSlide] = useState(0);
 
   // Connection & Database Sleep State
@@ -415,14 +454,18 @@ export default function HomePage() {
       ctaText: 'Explore Service',
     }));
 
-    const featV = rawVids.filter(v => v.isFeatured).map(v => {
+    // Videos for Spotlight - use fetched videos if available, or signature fallback videos
+    const vidsList = Array.isArray(rawVids) && rawVids.length > 0 ? rawVids : DEFAULT_FALLBACK_VIDEOS;
+    setFeaturedVideos(vidsList);
+
+    const featV = vidsList.map(v => {
       const thumb = v.thumbnailUrl || (v.youtubeId ? `https://i.ytimg.com/vi/${v.youtubeId}/hqdefault.jpg` : null);
       return {
         id: v.id,
         _type: 'video',
         targetUrl: `/videos?play=${v.id}`,
         name: v.title,
-        badge: 'Featured Video Spotlight',
+        badge: 'Featured Video Premiere',
         divisionName: v.sourceType === 'YOUTUBE' ? 'YouTube Production' : 'Exclusive Video',
         description: v.description || 'Watch our premier cinematography and video production.',
         image: getImageUrl(thumb, 'https://images.unsplash.com/photo-1518173946687-a4c8a383392e?auto=format&fit=crop&w=1600&q=80'),
@@ -432,35 +475,19 @@ export default function HomePage() {
       };
     });
 
-    const dynamicFeatured = [...featP, ...featS, ...featV];
+    // Interleave slides so Video is immediately visible as Slide 1, followed by Service, Product, Video, etc.
+    const dynamicFeatured = [];
+    const maxLen = Math.max(featV.length, featS.length, featP.length);
+    for (let i = 0; i < maxLen; i++) {
+      if (featV[i]) dynamicFeatured.push(featV[i]);
+      if (featS[i]) dynamicFeatured.push(featS[i]);
+      if (featP[i]) dynamicFeatured.push(featP[i]);
+    }
+
     if (dynamicFeatured.length > 0) {
       setFeaturedItems(dynamicFeatured);
     } else {
-      const realSlides = [
-        ...rawSrvs.slice(0, 3).map(s => ({
-          id: s.id,
-          _type: 'service',
-          targetUrl: `/services/${s.id}`,
-          name: s.name,
-          badge: s.businessDivision?.name || 'Service',
-          divisionName: s.businessDivision?.name || 'Service',
-          description: s.description,
-          image: getImageUrl(s.featuredImage || (Array.isArray(s.images) ? s.images[0] : null)),
-          ctaText: 'Explore Service',
-        })),
-        ...rawProds.slice(0, 3).map(p => ({
-          id: p.id,
-          _type: 'product',
-          targetUrl: `/products/${p.id}`,
-          name: p.name,
-          badge: p.businessDivision?.name || 'Product',
-          divisionName: p.businessDivision?.name || 'Product',
-          description: p.description,
-          image: getImageUrl(p.featuredImage || (Array.isArray(p.images) ? p.images[0] : null)),
-          ctaText: 'View Product Details',
-        }))
-      ];
-      setFeaturedItems(realSlides.length > 0 ? realSlides : DEFAULT_FEATURED_SLIDES);
+      setFeaturedItems(DEFAULT_FEATURED_SLIDES);
     }
 
     // 1. Photography & Videography

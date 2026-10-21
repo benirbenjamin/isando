@@ -376,26 +376,40 @@ export async function autoMigrateDatabase() {
           await prisma.video.createMany({
             data: [
               {
+                id: 'vid-init-wedding-1',
                 title: 'Romantic T Solutions - Cinematic Wedding Production & Highlights',
                 description: 'Experience the magic of romantic weddings captured in stunning 4K cinematography by Romantic T Solutions Ltd.',
                 videoUrl: 'https://www.youtube.com/watch?v=LXb3EKWsInQ',
                 youtubeId: 'LXb3EKWsInQ',
                 thumbnailUrl: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=80',
                 sourceType: 'YOUTUBE',
+                duration: '4:15',
+                viewsCount: 1420,
                 isFeatured: true,
                 sortOrder: 1,
+                status: 'ACTIVE'
               },
               {
+                id: 'vid-init-convoy-2',
                 title: 'Executive Bridal Convoy & Luxury Car Fleet in Rwanda',
                 description: 'Uniformed VIP chauffeurs, Mercedes-Benz, and V8 Land Cruiser convoy for executive bridal transport.',
                 videoUrl: 'https://www.youtube.com/watch?v=7wtfhZwyrcc',
                 youtubeId: '7wtfhZwyrcc',
                 thumbnailUrl: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=1200&q=80',
                 sourceType: 'YOUTUBE',
+                duration: '3:30',
+                viewsCount: 980,
                 isFeatured: true,
                 sortOrder: 2,
+                status: 'ACTIVE'
               }
             ]
+          }).catch(() => {});
+        } else {
+          // Ensure all active videos have isFeatured = true for spotlight visibility
+          await prisma.video.updateMany({
+            where: { isFeatured: false },
+            data: { isFeatured: true }
           }).catch(() => {});
         }
       } catch (_) {}

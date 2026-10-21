@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  Home, ShoppingBag, Layers, PhoneCall, LayoutDashboard,
+  Home, ShoppingBag, Layers, PhoneCall, LayoutDashboard, Video,
   Calendar, ShoppingCart, MessageSquare, Menu, User
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -167,17 +167,17 @@ export default function MobileBottomNav({ onOpenMobileMenu }) {
           <span className="text-[10px]">Services</span>
         </NavLink>
 
-        {/* 4. Contact */}
+        {/* 4. Videos */}
         <NavLink
-          to="/contact"
+          to="/videos"
           className={({ isActive }) =>
             `flex flex-col items-center justify-center h-full transition ${
               isActive ? 'text-brand-red font-black' : 'text-gray-500 hover:text-brand-dark'
             }`
           }
         >
-          <PhoneCall className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px]">Contact</span>
+          <Video className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px]">Videos</span>
         </NavLink>
 
         {/* 5. Profile/Account on the side -> Redirects directly to Dashboard */}

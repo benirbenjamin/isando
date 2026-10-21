@@ -125,12 +125,12 @@ export default function Navbar() {
             <Link to="/products" className="hidden lg:inline-block px-3 py-1.5 text-sm font-semibold text-gray-700 hover:text-brand-red">
               Products
             </Link>
+            <Link to="/services" className="hidden lg:inline-block px-3 py-1.5 text-sm font-semibold text-gray-700 hover:text-brand-red">
+              Services
+            </Link>
             <Link to="/videos" className="hidden md:inline-flex items-center gap-1 px-3 py-1.5 text-sm font-semibold text-gray-700 hover:text-brand-red">
               <Video className="w-4 h-4 text-brand-red" />
               <span>Videos</span>
-            </Link>
-            <Link to="/services" className="hidden lg:inline-block px-3 py-1.5 text-sm font-semibold text-gray-700 hover:text-brand-red">
-              Services
             </Link>
             <Link to="/about" className="hidden xl:inline-block px-3 py-1.5 text-sm font-semibold text-gray-700 hover:text-brand-red">
               About
