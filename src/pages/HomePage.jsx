@@ -71,17 +71,6 @@ const DEFAULT_FEATURED_SLIDES = [
     ctaText: 'Watch Video Now',
   },
   {
-    id: 'feat-slide-1',
-    _type: 'service',
-    targetUrl: '/services',
-    name: 'Cinematic 4K Photography & Videography',
-    badge: 'Signature Media Production',
-    divisionName: 'Photography & Videography',
-    description: 'Breathtaking 4K multi-camera wedding films, aerial drone coverage, portraiture & premium heirloom photo albums.',
-    image: 'https://images.unsplash.com/photo-1537633552985-df8429e8048b?auto=format&fit=crop&w=1600&q=80',
-    ctaText: 'Explore Media Packages',
-  },
-  {
     id: 'feat-slide-video-2',
     _type: 'video',
     targetUrl: '/videos',
@@ -91,50 +80,6 @@ const DEFAULT_FEATURED_SLIDES = [
     description: 'VIP Mercedes-Benz, V8 Land Cruisers and Range Rovers with professional uniformed chauffeurs for your memorable day.',
     image: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=1600&q=80',
     ctaText: 'Watch Fleet Video',
-  },
-  {
-    id: 'feat-slide-2',
-    _type: 'service',
-    targetUrl: '/services',
-    name: 'Luxury Chauffeured Bridal Convoy & Car Rentals',
-    badge: 'Executive Transport',
-    divisionName: 'Wedding Car Rentals',
-    description: 'Prestige Mercedes-Benz, V8 Land Cruisers and VIP Range Rovers with professional uniformed chauffeurs for your memorable day.',
-    image: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=1600&q=80',
-    ctaText: 'Book Bridal Fleet',
-  },
-  {
-    id: 'feat-slide-3',
-    _type: 'product',
-    targetUrl: '/products?division=Food%20%26%20Beverages',
-    name: 'Wholesale & Retail Food and Beverages',
-    badge: 'Fresh & Fast Supply',
-    divisionName: 'Food & Beverages',
-    description: 'Fresh 100% natural Inyange fruit juices, sparkling soft drinks, catering provisions and premium Tanzanian super rice.',
-    image: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=1600&q=80',
-    ctaText: 'Order Food & Drinks',
-  },
-  {
-    id: 'feat-slide-4',
-    _type: 'product',
-    targetUrl: '/products?division=Clothes%20%26%20Shoes',
-    name: 'Designer Clothes, Shoes & Traditional Attire',
-    badge: 'Elegance & Fashion',
-    divisionName: 'Clothes & Shoes',
-    description: 'Authentic royal Rwandan Mushanana, bespoke tailored tuxedos, wedding dresses and handcrafted Italian leather footwear.',
-    image: 'https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=1600&q=80',
-    ctaText: 'Shop Fashion Collection',
-  },
-  {
-    id: 'feat-slide-5',
-    _type: 'service',
-    targetUrl: '/services?division=Consultancy%20Services',
-    name: 'Strategic Event Planning & Business Advisory',
-    badge: 'Expert Consultancy',
-    divisionName: 'Consultancy Services',
-    description: 'Executive corporate protocol advisory, end-to-end event production, budget optimization and SME business development.',
-    image: 'https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1600&q=80',
-    ctaText: 'Consult Our Experts',
   }
 ];
 
@@ -429,8 +374,9 @@ export default function HomePage() {
     }
     setCategories(dynamicCats);
 
-    // Dynamic Featured Spotlight slides
-    const featP = rawProds.filter(p => p.isFeatured).map(p => ({
+    // Dynamic Featured Spotlight slides - only include REAL live items from database, no dummy fallbacks
+    const isLiveCatalog = !isUsingFallback && (isLiveConnected || hasCachedData);
+    const featP = (isLiveCatalog ? rawProds.filter(p => Boolean(p.isFeatured)) : []).map(p => ({
       id: p.id,
       _type: 'product',
       targetUrl: `/products/${p.id}`,
@@ -442,7 +388,7 @@ export default function HomePage() {
       ctaText: 'View Product Details',
     }));
 
-    const featS = rawSrvs.filter(s => s.isFeatured).map(s => ({
+    const featS = (isLiveCatalog ? rawSrvs.filter(s => Boolean(s.isFeatured)) : []).map(s => ({
       id: s.id,
       _type: 'service',
       targetUrl: `/services/${s.id}`,
@@ -475,7 +421,7 @@ export default function HomePage() {
       };
     });
 
-    // Interleave slides so Video is immediately visible as Slide 1, followed by Service, Product, Video, etc.
+    // Interleave slides: Videos first, followed by live featured items
     const dynamicFeatured = [];
     const maxLen = Math.max(featV.length, featS.length, featP.length);
     for (let i = 0; i < maxLen; i++) {
@@ -737,53 +683,6 @@ export default function HomePage() {
 
   return (
     <div className="space-y-12 pb-16">
-      {/* =========================================================================
-          DATABASE WAKE-UP & CONNECTION REASSURANCE BANNERS
-          ========================================================================= */}
-      {isDbWakingUp && (
-        <div className="max-w-7xl mx-auto px-4 pt-4">
-          <div className="bg-gradient-to-r from-amber-50 via-amber-100/70 to-amber-50 border border-brand-yellow text-brand-dark px-4 py-3 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shadow-md animate-fade-in">
-            <div className="flex items-center gap-3">
-              <span className="relative flex h-3 w-3 flex-shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
-              </span>
-              <div>
-                <span className="font-extrabold text-amber-950">Waking up catalog database...</span>{' '}
-                <span className="text-amber-800">
-                  The database is spinning up after inactivity. Connecting to fetch latest live products & services.
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 font-bold text-amber-900 bg-white/70 px-3 py-1 rounded-full border border-amber-200">
-              <div className="w-3.5 h-3.5 border-2 border-brand-red border-t-transparent rounded-full animate-spin" />
-              <span>Connecting (Attempt {connectionAttempt}/3)...</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isUsingFallback && !isLiveConnected && (
-        <div className="max-w-7xl mx-auto px-4 pt-2">
-          <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200 text-emerald-950 px-4 py-3 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shadow-sm">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-5 h-5 text-emerald-600 flex-shrink-0" />
-              <span>
-                <strong>Catalog Available:</strong> Displaying full catalog preview while live database connects in the background.
-              </span>
-            </div>
-            <button
-              onClick={() => loadData(true)}
-              disabled={isConnecting}
-              className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-4 py-1.5 rounded-full text-xs shadow transition disabled:opacity-50 whitespace-nowrap"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isConnecting ? 'animate-spin' : ''}`} />
-              <span>{isConnecting ? 'Reconnecting...' : 'Sync Live DB'}</span>
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* =========================================================================
           FIRST-TIME VISITOR SKELETON LOADER (WHILE DATABASE IS WAKING UP)
           ========================================================================= */}

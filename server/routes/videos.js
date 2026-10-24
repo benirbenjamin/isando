@@ -11,50 +11,30 @@ import {
 const router = express.Router();
 
 /**
- * Public: List all active videos
+ * Public: Increment view count for a video
  */
-router.get('/', async (req, res) => {
+router.post('/:id/view', async (req, res) => {
   try {
-    const { isFeatured, sourceType, search, limit = 50, offset = 0 } = req.query;
-
-    const where = { status: 'ACTIVE' };
-
-    if (isFeatured === 'true') {
-      where.isFeatured = true;
+    const { id } = req.params;
+    let video = await prisma.video.findUnique({ where: { id } });
+    if (!video) {
+      video = await prisma.video.findFirst({ where: { youtubeId: id } });
     }
 
-    if (sourceType) {
-      where.sourceType = sourceType.toUpperCase();
+    if (!video) {
+      return res.json({ success: false, viewsCount: 1 });
     }
 
-    if (search && search.trim()) {
-      where.OR = [
-        { title: { contains: search.trim() } },
-        { description: { contains: search.trim() } },
-      ];
-    }
+    const updated = await prisma.video.update({
+      where: { id: video.id },
+      data: { viewsCount: { increment: 1 } },
+      select: { id: true, viewsCount: true }
+    });
 
-    const [total, videos] = await withDbRetry(
-      () => Promise.all([
-        prisma.video.count({ where }),
-        prisma.video.findMany({
-          where,
-          orderBy: [
-            { isFeatured: 'desc' },
-            { sortOrder: 'asc' },
-            { createdAt: 'desc' }
-          ],
-          take: parseInt(limit, 10),
-          skip: parseInt(offset, 10),
-        })
-      ]),
-      { maxRetries: 3, initialDelayMs: 1200, operationName: 'List videos' }
-    );
-
-    return res.json({ total, videos });
+    return res.json({ success: true, viewsCount: updated.viewsCount });
   } catch (err) {
-    console.error('List videos error:', err);
-    return res.status(500).json({ error: err.message });
+    console.error('Error incrementing video views:', err.message);
+    return res.json({ success: false });
   }
 });
 
@@ -65,10 +45,17 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const video = await withDbRetry(
+    let video = await withDbRetry(
       () => prisma.video.findUnique({ where: { id } }),
       { maxRetries: 3, operationName: 'Get single video' }
     );
+
+    if (!video) {
+      video = await withDbRetry(
+        () => prisma.video.findFirst({ where: { youtubeId: id } }),
+        { maxRetries: 2, operationName: 'Find video by youtubeId' }
+      );
+    }
 
     if (!video) {
       return res.status(404).json({ error: 'Video not found' });
@@ -76,11 +63,11 @@ router.get('/:id', async (req, res) => {
 
     // Increment view count in background non-blocking
     prisma.video.update({
-      where: { id },
+      where: { id: video.id },
       data: { viewsCount: { increment: 1 } }
     }).catch(() => {});
 
-    return res.json(video);
+    return res.json({ ...video, viewsCount: (video.viewsCount || 0) + 1 });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

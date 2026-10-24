@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import {
   Play, Search, Sparkles, Video as VideoIcon, Youtube, UploadCloud,
-  Eye, Calendar, Share2, MessageCircle, X, ExternalLink, RefreshCw
+  Eye, Calendar, Share2, MessageCircle, X, ExternalLink, RefreshCw, Volume2
 } from 'lucide-react';
 import { api, getWhatsAppLink } from '../services/api';
 
@@ -12,7 +12,8 @@ export default function VideosPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('ALL'); // 'ALL', 'YOUTUBE', 'UPLOAD', 'FEATURED'
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeVideo, setActiveVideo] = useState(null); // Video currently playing in modal
+  const [activeVideo, setActiveVideo] = useState(null); // Video currently playing in top in-page player
+  const playerRef = useRef(null);
 
   // Auto-play video from query parameter (e.g. from Featured Spotlight slide)
   const playIdParam = searchParams.get('play');
@@ -24,11 +25,11 @@ export default function VideosPage() {
       const list = res.videos || [];
       setVideos(list);
 
-      // If playIdParam is present, automatically open that video in modal
+      // If playIdParam is present, automatically start playing that video in-page
       if (playIdParam) {
         const found = list.find(v => v.id === playIdParam || v.youtubeId === playIdParam);
         if (found) {
-          setActiveVideo(found);
+          handlePlayVideo(found, false);
         }
       }
     } catch (err) {
@@ -42,28 +43,51 @@ export default function VideosPage() {
     fetchVideos();
   }, [playIdParam]);
 
-  // Handle closing the player modal
+  // Handle playing video directly IN-PAGE (NO MODAL) and record view count
+  const handlePlayVideo = async (video, shouldScroll = true) => {
+    setActiveVideo(video);
+
+    // Update query parameter cleanly without reloading
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('play', video.id);
+    setSearchParams(nextParams, { replace: true });
+
+    // Smooth scroll directly to the in-page cinema player section
+    if (shouldScroll) {
+      setTimeout(() => {
+        playerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 60);
+    }
+
+    // 1. Optimistic UI update: increment view count immediately
+    const nextViews = (video.viewsCount || 0) + 1;
+    setVideos(prev => prev.map(v => (v.id === video.id || v.youtubeId === video.id) ? { ...v, viewsCount: nextViews } : v));
+    setActiveVideo(prev => prev && (prev.id === video.id || prev.youtubeId === video.id) ? { ...prev, viewsCount: nextViews } : video);
+
+    // 2. Persist view count to database via POST /api/videos/:id/view
+    try {
+      const res = await api.post(`/videos/${video.id}/view`);
+      if (res && typeof res.viewsCount === 'number') {
+        setVideos(prev => prev.map(v => (v.id === video.id || v.youtubeId === video.id) ? { ...v, viewsCount: res.viewsCount } : v));
+        setActiveVideo(prev => prev && (prev.id === video.id || prev.youtubeId === video.id) ? { ...prev, viewsCount: res.viewsCount } : prev);
+      }
+    } catch (_) {
+      // Fallback: also ping GET /api/videos/:id
+      api.get(`/videos/${video.id}`).catch(() => {});
+    }
+  };
+
+  // Handle closing / minimizing the in-page player
   const handleClosePlayer = () => {
     setActiveVideo(null);
     if (searchParams.has('play')) {
       const nextParams = new URLSearchParams(searchParams);
       nextParams.delete('play');
-      setSearchParams(nextParams);
+      setSearchParams(nextParams, { replace: true });
     }
   };
 
-  // Close on Escape key
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && activeVideo) {
-        handleClosePlayer();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeVideo]);
-
-  // Filter videos
+  // Filter videos based on active tab and search query
   const filteredVideos = videos.filter(v => {
     if (activeTab === 'YOUTUBE' && v.sourceType !== 'YOUTUBE') return false;
     if (activeTab === 'UPLOAD' && v.sourceType !== 'UPLOAD') return false;
@@ -101,6 +125,131 @@ export default function VideosPage() {
             </p>
           </div>
         </div>
+
+        {/* =========================================================================
+            IN-PAGE FEATURED CINEMA PLAYER (NOT A MODAL - PLAYS DIRECTLY ON PAGE)
+            ========================================================================= */}
+        {activeVideo && (
+          <section ref={playerRef} className="scroll-mt-24 transition-all duration-500 animate-fade-in">
+            <div className="bg-[#12141A] text-white rounded-3xl overflow-hidden shadow-2xl border-2 border-brand-yellow/70 flex flex-col">
+              {/* Cinema Player Top Bar */}
+              <div className="flex items-center justify-between px-5 sm:px-7 py-3.5 border-b border-gray-800 bg-[#1A1D26]">
+                <div className="flex items-center gap-2.5 truncate pr-4">
+                  <span className="w-3 h-3 rounded-full bg-brand-red animate-ping flex-shrink-0" />
+                  <span className="text-[11px] font-black text-brand-yellow uppercase tracking-wider bg-brand-yellow/10 px-2.5 py-0.5 rounded-full border border-brand-yellow/30 flex-shrink-0">
+                    Now Playing
+                  </span>
+                  <h2 className="font-extrabold text-sm sm:text-base text-gray-100 truncate">
+                    {activeVideo.title}
+                  </h2>
+                </div>
+                <button
+                  onClick={handleClosePlayer}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold text-gray-300 hover:text-white bg-white/10 hover:bg-white/20 transition flex-shrink-0"
+                  title="Close player"
+                  aria-label="Close player"
+                >
+                  <X className="w-4 h-4" />
+                  <span className="hidden sm:inline">Close Player</span>
+                </button>
+              </div>
+
+              {/* Video Viewport (16:9 ratio directly in page) */}
+              <div className="relative aspect-video w-full bg-black flex items-center justify-center">
+                {activeVideo.youtubeId ? (
+                  <iframe
+                    src={getYoutubeEmbedUrl(activeVideo.youtubeId)}
+                    title={activeVideo.title}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    className="w-full h-full border-0"
+                  />
+                ) : (activeVideo.videoUrl && (activeVideo.videoUrl.endsWith('.mp4') || activeVideo.videoUrl.endsWith('.webm'))) ? (
+                  <video
+                    src={activeVideo.videoUrl}
+                    controls
+                    autoPlay
+                    playsInline
+                    className="w-full h-full object-contain"
+                  />
+                ) : (
+                  <iframe
+                    src={activeVideo.videoUrl}
+                    title={activeVideo.title}
+                    allowFullScreen
+                    className="w-full h-full border-0"
+                  />
+                )}
+              </div>
+
+              {/* Video Meta & Actions Bar */}
+              <div className="p-5 sm:p-7 space-y-4 bg-[#14161F]">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <h2 className="text-xl sm:text-2xl font-black text-white leading-tight">
+                      {activeVideo.title}
+                    </h2>
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-gray-300">
+                      <span className="flex items-center gap-1.5 font-bold text-brand-yellow bg-brand-yellow/10 px-2.5 py-0.5 rounded-full border border-brand-yellow/30">
+                        <Eye className="w-3.5 h-3.5 text-brand-yellow" />
+                        <span>{activeVideo.viewsCount || 0} views</span>
+                      </span>
+                      <span>•</span>
+                      <span>{new Date(activeVideo.createdAt || Date.now()).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                      {activeVideo.sourceType === 'YOUTUBE' && (
+                        <>
+                          <span>•</span>
+                          <span className="text-red-400 font-bold flex items-center gap-1">
+                            <Youtube className="w-3.5 h-3.5" />
+                            <span>YouTube Production</span>
+                          </span>
+                        </>
+                      )}
+                      {activeVideo.duration && (
+                        <>
+                          <span>•</span>
+                          <span className="text-gray-400 font-semibold">{activeVideo.duration}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions: Direct WhatsApp Booking & External YouTube Link */}
+                  <div className="flex items-center gap-2.5 flex-shrink-0">
+                    <a
+                      href={getWhatsAppLink('250786639945', `Hello Romantic T Solutions, I watched your video "${activeVideo.title}" and I would like to book a related service!`)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 bg-[#25D366] hover:bg-[#20ba59] text-white font-extrabold text-xs sm:text-sm px-5 py-2.5 rounded-full shadow-lg transition transform hover:scale-105"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      <span>Inquire on WhatsApp</span>
+                    </a>
+
+                    {activeVideo.youtubeId && (
+                      <a
+                        href={`https://www.youtube.com/watch?v=${activeVideo.youtubeId}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition text-xs font-semibold"
+                        title="Watch on YouTube"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {/* Description */}
+                {activeVideo.description && (
+                  <div className="bg-[#1C1F27] p-4 sm:p-5 rounded-2xl text-xs sm:text-sm text-gray-200 leading-relaxed whitespace-pre-line border border-gray-800">
+                    {activeVideo.description}
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Filter Tabs & Search Bar */}
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-white p-3 sm:p-4 rounded-2xl border border-brand-border shadow-sm">
@@ -183,19 +332,22 @@ export default function VideosPage() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredVideos.map((video) => {
-              const isYoutube = video.sourceType === 'YOUTUBE' || Boolean(video.youtubeId);
-              const thumb = video.thumbnailUrl || (video.youtubeId ? `https://img.youtube.com/vi/${video.youtubeId}/hqdefault.jpg` : 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=70');
+              const isYoutube = video.sourceType === 'YOUTUBE';
+              const thumb = video.thumbnailUrl || (video.youtubeId ? `https://i.ytimg.com/vi/${video.youtubeId}/hqdefault.jpg` : '/placeholder-video.jpg');
+              const isCurrentlyPlaying = activeVideo && (activeVideo.id === video.id || activeVideo.youtubeId === video.youtubeId);
 
               return (
                 <div
                   key={video.id}
-                  onClick={() => setActiveVideo(video)}
-                  className="group bg-white rounded-3xl border border-brand-border overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col cursor-pointer"
+                  onClick={() => handlePlayVideo(video)}
+                  className={`group bg-white rounded-3xl border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 overflow-hidden flex flex-col cursor-pointer ${
+                    isCurrentlyPlaying ? 'border-brand-red ring-2 ring-brand-red/30 shadow-lg' : 'border-brand-border hover:border-brand-yellow'
+                  }`}
                 >
                   {/* Thumbnail Container */}
-                  <div className="relative aspect-video bg-black overflow-hidden">
+                  <div className="relative aspect-video bg-black overflow-hidden select-none">
                     <img
                       src={thumb}
                       alt={video.title}
@@ -233,16 +385,28 @@ export default function VideosPage() {
 
                     {/* Center Glowing Play Button */}
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-14 h-14 rounded-full bg-brand-red/90 group-hover:bg-brand-red text-white flex items-center justify-center shadow-2xl transform group-hover:scale-115 transition-all duration-300 backdrop-blur-sm border-2 border-white/40">
-                        <Play className="w-6 h-6 fill-white ml-0.5" />
+                      <div className={`w-14 h-14 rounded-full text-white flex items-center justify-center shadow-2xl transform group-hover:scale-115 transition-all duration-300 backdrop-blur-sm border-2 border-white/40 ${
+                        isCurrentlyPlaying ? 'bg-brand-red animate-pulse' : 'bg-brand-red/90 group-hover:bg-brand-red'
+                      }`}>
+                        {isCurrentlyPlaying ? (
+                          <Volume2 className="w-6 h-6 fill-white" />
+                        ) : (
+                          <Play className="w-6 h-6 fill-white ml-0.5" />
+                        )}
                       </div>
                     </div>
 
-                    {/* Duration or views pill */}
-                    <div className="absolute bottom-3 right-3 flex items-center gap-2 text-white/90 text-[11px] font-semibold bg-black/60 backdrop-blur-md px-2.5 py-0.5 rounded-full border border-white/20">
-                      <Eye className="w-3 h-3" />
+                    {/* Live Views Counter Pill */}
+                    <div className="absolute bottom-3 right-3 flex items-center gap-1.5 text-white/95 text-[11px] font-bold bg-black/70 backdrop-blur-md px-2.5 py-0.5 rounded-full border border-white/20">
+                      <Eye className="w-3.5 h-3.5 text-brand-yellow" />
                       <span>{video.viewsCount || 0} views</span>
                     </div>
+
+                    {video.duration && (
+                      <div className="absolute bottom-3 left-3 text-white/90 text-[10px] font-semibold bg-black/70 backdrop-blur-md px-2 py-0.5 rounded border border-white/10">
+                        {video.duration}
+                      </div>
+                    )}
                   </div>
 
                   {/* Video Content */}
@@ -261,10 +425,10 @@ export default function VideosPage() {
                     <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-xs text-brand-muted">
                       <div className="flex items-center gap-1.5">
                         <Calendar className="w-3.5 h-3.5 text-gray-400" />
-                        <span>{new Date(video.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                        <span>{new Date(video.createdAt || Date.now()).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
                       </div>
                       <span className="font-bold text-brand-red group-hover:underline flex items-center gap-1">
-                        <span>Play Video</span>
+                        <span>{isCurrentlyPlaying ? 'Playing' : 'Watch Video'}</span>
                         <Play className="w-3 h-3 fill-brand-red" />
                       </span>
                     </div>
@@ -275,120 +439,6 @@ export default function VideosPage() {
           </div>
         )}
       </div>
-
-      {/* =========================================================================
-          CINEMA MODE VIDEO PLAYER MODAL
-          ========================================================================= */}
-      {activeVideo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-fade-in">
-          {/* Backdrop Click */}
-          <div className="absolute inset-0" onClick={handleClosePlayer} />
-
-          {/* Modal Container */}
-          <div className="relative z-10 bg-[#16181F] text-white w-full max-w-4xl rounded-3xl overflow-hidden shadow-2xl border border-gray-800 flex flex-col max-h-[92vh]">
-            {/* Top Bar with Title and Close Button */}
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-800/80 bg-[#1C1F27]">
-              <div className="flex items-center gap-2 truncate pr-4">
-                <span className="w-2.5 h-2.5 rounded-full bg-brand-red animate-pulse" />
-                <h3 className="font-extrabold text-sm sm:text-base text-gray-100 truncate">
-                  {activeVideo.title}
-                </h3>
-              </div>
-              <button
-                onClick={handleClosePlayer}
-                className="p-1.5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition"
-                aria-label="Close video player"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Video Viewport (16:9 ratio) */}
-            <div className="relative aspect-video w-full bg-black flex items-center justify-center">
-              {activeVideo.youtubeId ? (
-                <iframe
-                  src={getYoutubeEmbedUrl(activeVideo.youtubeId)}
-                  title={activeVideo.title}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  className="w-full h-full border-0"
-                />
-              ) : activeVideo.videoUrl && activeVideo.videoUrl.endsWith('.mp4') || activeVideo.videoUrl.endsWith('.webm') ? (
-                <video
-                  src={activeVideo.videoUrl}
-                  controls
-                  autoPlay
-                  playsInline
-                  className="w-full h-full object-contain"
-                />
-              ) : (
-                <iframe
-                  src={activeVideo.videoUrl}
-                  title={activeVideo.title}
-                  allowFullScreen
-                  className="w-full h-full border-0"
-                />
-              )}
-            </div>
-
-            {/* Video Meta & Actions */}
-            <div className="p-5 sm:p-6 overflow-y-auto space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-lg sm:text-xl font-black text-white leading-tight">
-                    {activeVideo.title}
-                  </h2>
-                  <div className="flex items-center gap-3 text-xs text-gray-400 mt-1">
-                    <span>{new Date(activeVideo.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                    <span>•</span>
-                    <span>{activeVideo.viewsCount || 0} views</span>
-                    {activeVideo.sourceType === 'YOUTUBE' && (
-                      <>
-                        <span>•</span>
-                        <span className="text-red-400 font-bold flex items-center gap-1">
-                          <Youtube className="w-3.5 h-3.5" />
-                          <span>YouTube</span>
-                        </span>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {/* WhatsApp & Share Button */}
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <a
-                    href={getWhatsAppLink('250786639945', `Hello Romantic T Solutions, I watched your video "${activeVideo.title}" and I would like to book a related service!`)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-xs px-4 py-2 rounded-full shadow transition"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    <span>Inquire on WhatsApp</span>
-                  </a>
-
-                  {activeVideo.youtubeId && (
-                    <a
-                      href={`https://www.youtube.com/watch?v=${activeVideo.youtubeId}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition"
-                      title="Open in YouTube"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
-                  )}
-                </div>
-              </div>
-
-              {activeVideo.description && (
-                <div className="bg-[#1C1F27] p-4 rounded-2xl text-xs sm:text-sm text-gray-300 leading-relaxed whitespace-pre-line border border-gray-800">
-                  {activeVideo.description}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
