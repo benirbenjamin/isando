@@ -11,87 +11,56 @@ import {
 const router = express.Router();
 
 /**
- * Public: Increment view count for a video
+ * Public: List all active videos
  */
-router.post('/:id/view', async (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const { id } = req.params;
-    let video = await prisma.video.findUnique({ where: { id } });
-    if (!video) {
-      video = await prisma.video.findFirst({ where: { youtubeId: id } });
+    const { isFeatured, sourceType, search, limit = 50, offset = 0 } = req.query;
+
+    const where = { status: 'ACTIVE' };
+
+    if (isFeatured === 'true') {
+      where.isFeatured = true;
     }
 
-    if (!video) {
-      return res.json({ success: false, viewsCount: 1 });
+    if (sourceType) {
+      where.sourceType = sourceType.toUpperCase();
     }
 
-    const updated = await prisma.video.update({
-      where: { id: video.id },
-      data: { viewsCount: { increment: 1 } },
-      select: { id: true, viewsCount: true }
-    });
+    if (search && search.trim()) {
+      where.OR = [
+        { title: { contains: search.trim() } },
+        { description: { contains: search.trim() } },
+      ];
+    }
 
-    return res.json({ success: true, viewsCount: updated.viewsCount });
-  } catch (err) {
-    console.error('Error incrementing video views:', err.message);
-    return res.json({ success: false });
-  }
-});
-
-/**
- * Public: Get single video and increment view count
- */
-router.get('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    let video = await withDbRetry(
-      () => prisma.video.findUnique({ where: { id } }),
-      { maxRetries: 3, operationName: 'Get single video' }
+    const [total, videos] = await withDbRetry(
+      () => Promise.all([
+        prisma.video.count({ where }),
+        prisma.video.findMany({
+          where,
+          orderBy: [
+            { isFeatured: 'desc' },
+            { sortOrder: 'asc' },
+            { createdAt: 'desc' }
+          ],
+          take: parseInt(limit, 10),
+          skip: parseInt(offset, 10),
+        })
+      ]),
+      { maxRetries: 3, initialDelayMs: 1200, operationName: 'List videos' }
     );
 
-    if (!video) {
-      video = await withDbRetry(
-        () => prisma.video.findFirst({ where: { youtubeId: id } }),
-        { maxRetries: 2, operationName: 'Find video by youtubeId' }
-      );
-    }
-
-    if (!video) {
-      return res.status(404).json({ error: 'Video not found' });
-    }
-
-    // Increment view count in background non-blocking
-    prisma.video.update({
-      where: { id: video.id },
-      data: { viewsCount: { increment: 1 } }
-    }).catch(() => {});
-
-    return res.json({ ...video, viewsCount: (video.viewsCount || 0) + 1 });
+    return res.json({ total, videos });
   } catch (err) {
+    console.error('List videos error:', err);
     return res.status(500).json({ error: err.message });
   }
 });
 
 /**
- * Public or Authenticated: Inspect YouTube URL and auto-fetch metadata
- */
-router.post('/fetch-youtube-info', async (req, res) => {
-  try {
-    const { url } = req.body;
-    if (!url) {
-      return res.status(400).json({ error: 'YouTube URL or Video ID is required' });
-    }
-
-    const info = await fetchYouTubeVideoInfo(url);
-    return res.json(info);
-  } catch (err) {
-    return res.status(400).json({ error: err.message });
-  }
-});
-
-/**
  * Admin: Get YouTube Channel Configuration & Sync Status
+ * MUST be before /:id parameterized route
  */
 router.get('/channel-config/status', authenticateToken, async (req, res) => {
   try {
@@ -162,6 +131,23 @@ router.post('/sync', authenticateToken, async (req, res) => {
 });
 
 /**
+ * Public or Authenticated: Inspect YouTube URL and auto-fetch metadata
+ */
+router.post('/fetch-youtube-info', async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url) {
+      return res.status(400).json({ error: 'YouTube URL or Video ID is required' });
+    }
+
+    const info = await fetchYouTubeVideoInfo(url);
+    return res.json(info);
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+});
+
+/**
  * Admin: Create a Video (YouTube or Uploaded)
  */
 router.post('/', authenticateToken, async (req, res) => {
@@ -214,6 +200,69 @@ router.post('/', authenticateToken, async (req, res) => {
     return res.status(201).json(video);
   } catch (err) {
     console.error('Create video error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Public: Increment view count for a video
+ */
+router.post('/:id/view', async (req, res) => {
+  try {
+    const { id } = req.params;
+    let video = await prisma.video.findUnique({ where: { id } });
+    if (!video) {
+      video = await prisma.video.findFirst({ where: { youtubeId: id } });
+    }
+
+    if (!video) {
+      return res.json({ success: false, viewsCount: 1 });
+    }
+
+    const updated = await prisma.video.update({
+      where: { id: video.id },
+      data: { viewsCount: { increment: 1 } },
+      select: { id: true, viewsCount: true }
+    });
+
+    return res.json({ success: true, viewsCount: updated.viewsCount });
+  } catch (err) {
+    console.error('Error incrementing video views:', err.message);
+    return res.json({ success: false });
+  }
+});
+
+/**
+ * Public: Get single video and increment view count
+ */
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    let video = await withDbRetry(
+      () => prisma.video.findUnique({ where: { id } }),
+      { maxRetries: 3, operationName: 'Get single video' }
+    );
+
+    if (!video) {
+      video = await withDbRetry(
+        () => prisma.video.findFirst({ where: { youtubeId: id } }),
+        { maxRetries: 2, operationName: 'Find video by youtubeId' }
+      );
+    }
+
+    if (!video) {
+      return res.status(404).json({ error: 'Video not found' });
+    }
+
+    // Increment view count in background non-blocking
+    prisma.video.update({
+      where: { id: video.id },
+      data: { viewsCount: { increment: 1 } }
+    }).catch(() => {});
+
+    return res.json({ ...video, viewsCount: (video.viewsCount || 0) + 1 });
+  } catch (err) {
     return res.status(500).json({ error: err.message });
   }
 });
