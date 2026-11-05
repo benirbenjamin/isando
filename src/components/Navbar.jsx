@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Search, MessageCircle, LogIn, LayoutDashboard, Home, ChevronLeft, ChevronRight, Video } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api, getWhatsAppLink } from '../services/api';
@@ -30,6 +30,14 @@ export default function Navbar() {
   const [divisions, setDivisions] = useState(DEFAULT_DIVISIONS);
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const currentPath = location.pathname;
+  const isHomeActive = currentPath === '/';
+  const isProductsActive = currentPath.startsWith('/products');
+  const isServicesActive = currentPath.startsWith('/services');
+  const isVideosActive = currentPath.startsWith('/videos');
+  const isAboutActive = currentPath === '/about';
   const divisionScrollRef = useRef(null);
 
   const scrollDivisions = (direction) => {
@@ -81,7 +89,9 @@ export default function Navbar() {
             <img 
               src="/logo.png" 
               alt="Romantic T Solutions Ltd" 
-              className="h-10 sm:h-11 w-auto object-contain"
+              className="h-12 sm:h-14 md:h-16 w-auto object-contain py-0.5 transition-all"
+              loading="eager"
+              decoding="async"
               onError={(e) => {
                 e.target.onerror = null;
                 e.target.src = 'https://i.postimg.cc/G2zNf3Fq/LOGO.png';
@@ -115,24 +125,56 @@ export default function Navbar() {
             {/* Home button - visible on both mobile and desktop */}
             <Link 
               to="/" 
-              className="flex px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-bold text-brand-dark hover:text-brand-red items-center gap-1 transition rounded-full hover:bg-gray-100"
+              className={`flex px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm items-center gap-1.5 rounded-full transition ${
+                isHomeActive 
+                  ? 'font-bold text-brand-red bg-red-50 border border-red-100 shadow-sm' 
+                  : 'font-semibold text-gray-700 hover:text-brand-red hover:bg-gray-100'
+              }`}
               title="Home"
             >
-              <Home className="w-4 h-4 text-brand-red" />
+              <Home className={`w-4 h-4 ${isHomeActive ? 'text-brand-red' : 'text-gray-500'}`} />
               <span className="inline">Home</span>
             </Link>
 
-            <Link to="/products" className="hidden lg:inline-block px-3 py-1.5 text-sm font-semibold text-gray-700 hover:text-brand-red">
+            <Link 
+              to="/products" 
+              className={`hidden lg:inline-flex px-3 py-1.5 text-sm rounded-full transition ${
+                isProductsActive 
+                  ? 'font-bold text-brand-red bg-red-50 border border-red-100 shadow-sm' 
+                  : 'font-semibold text-gray-700 hover:text-brand-red hover:bg-gray-100'
+              }`}
+            >
               Products
             </Link>
-            <Link to="/services" className="hidden lg:inline-block px-3 py-1.5 text-sm font-semibold text-gray-700 hover:text-brand-red">
+            <Link 
+              to="/services" 
+              className={`hidden lg:inline-flex px-3 py-1.5 text-sm rounded-full transition ${
+                isServicesActive 
+                  ? 'font-bold text-brand-red bg-red-50 border border-red-100 shadow-sm' 
+                  : 'font-semibold text-gray-700 hover:text-brand-red hover:bg-gray-100'
+              }`}
+            >
               Services
             </Link>
-            <Link to="/videos" className="hidden md:inline-flex items-center gap-1 px-3 py-1.5 text-sm font-semibold text-gray-700 hover:text-brand-red">
-              <Video className="w-4 h-4 text-brand-red" />
+            <Link 
+              to="/videos" 
+              className={`hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-full transition ${
+                isVideosActive 
+                  ? 'font-bold text-brand-red bg-red-50 border border-red-100 shadow-sm' 
+                  : 'font-semibold text-gray-700 hover:text-brand-red hover:bg-gray-100'
+              }`}
+            >
+              <Video className={`w-4 h-4 ${isVideosActive ? 'text-brand-red' : 'text-gray-500'}`} />
               <span>Videos</span>
             </Link>
-            <Link to="/about" className="hidden xl:inline-block px-3 py-1.5 text-sm font-semibold text-gray-700 hover:text-brand-red">
+            <Link 
+              to="/about" 
+              className={`hidden xl:inline-flex px-3 py-1.5 text-sm rounded-full transition ${
+                isAboutActive 
+                  ? 'font-bold text-brand-red bg-red-50 border border-red-100 shadow-sm' 
+                  : 'font-semibold text-gray-700 hover:text-brand-red hover:bg-gray-100'
+              }`}
+            >
               About
             </Link>
 

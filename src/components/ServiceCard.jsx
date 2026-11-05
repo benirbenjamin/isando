@@ -30,6 +30,7 @@ export default function ServiceCard({ service }) {
           alt={service.name}
           className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500"
           loading="lazy"
+          decoding="async"
           onError={(e) => {
             if (backupImage && e.target.src !== backupImage) {
               e.target.src = backupImage;

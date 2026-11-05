@@ -8,6 +8,7 @@ import {
 import { api, getWhatsAppLink, getImageUrl, getImageBackupUrl } from '../services/api';
 import ProductCard from '../components/ProductCard';
 import ServiceCard from '../components/ServiceCard';
+import LazyViewport from '../components/LazyViewport';
 
 function getCategoryEmoji(name = '') {
   const n = (name || '').toLowerCase();
@@ -532,19 +533,19 @@ export default function HomePage() {
 
     let succeeded = false;
 
-    // Retry loop: allows sleeping database up to 3 cycles (with backoff) to wake up
-    for (let attempt = 1; attempt <= 3; attempt++) {
+    // Fast retry loop: allows sleeping database 2 attempts without blocking user
+    for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         setConnectionAttempt(attempt);
         if (attempt > 1 || isManualRetry) {
           setIsDbWakingUp(true);
         }
 
-        const [divRes, prodRes, srvRes] = await Promise.all([
-          api.get('/divisions', { retries: 2, delayMs: 1200 }),
-          api.get('/products?limit=100', { retries: 2, delayMs: 1200 }),
-          api.get('/services?limit=100', { retries: 2, delayMs: 1200 }),
-          api.get('/videos?limit=20', { retries: 2, delayMs: 1200 }).catch(() => ({ videos: [] }))
+        const [divRes, prodRes, srvRes, vidRes] = await Promise.all([
+          api.get('/divisions', { retries: 1, delayMs: 800 }),
+          api.get('/products?limit=100', { retries: 1, delayMs: 800 }),
+          api.get('/services?limit=100', { retries: 1, delayMs: 800 }),
+          api.get('/videos?limit=20', { retries: 1, delayMs: 800 }).catch(() => ({ videos: [] }))
         ]);
 
         const prods = Array.isArray(prodRes?.products) ? prodRes.products : [];
@@ -573,17 +574,17 @@ export default function HomePage() {
           succeeded = true;
           break;
         } else {
-          // If arrays came back empty, DB might still be seeding or cold; wait and retry
-          if (attempt < 3) {
+          // If arrays came back empty, DB might still be seeding or cold; wait and retry once
+          if (attempt < 2) {
             setIsDbWakingUp(true);
-            await new Promise(r => setTimeout(r, 2000 * attempt));
+            await new Promise(r => setTimeout(r, 1200));
           }
         }
       } catch (err) {
         console.warn(`⏳ [Catalog DB Wake-up] Attempt ${attempt} failed:`, err.message);
         setIsDbWakingUp(true);
-        if (attempt < 3) {
-          await new Promise(r => setTimeout(r, 2200 * attempt));
+        if (attempt < 2) {
+          await new Promise(r => setTimeout(r, 1200));
         }
       }
     }
@@ -830,6 +831,7 @@ export default function HomePage() {
           {featuredItems.map((item, idx) => {
             const slideImg = item.image || getImageUrl(item.featuredImage || (Array.isArray(item.images) ? item.images[0] : item.images), 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1600&q=80');
             const isActive = idx === currentSlide;
+            const shouldLoadImage = isActive || idx === 0 || Math.abs(idx - currentSlide) <= 1;
 
             return (
               <div
@@ -837,15 +839,19 @@ export default function HomePage() {
                 className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${isActive ? 'opacity-100 z-10 pointer-events-auto' : 'opacity-0 z-0 pointer-events-none'}`}
               >
                 {/* Background Image with Dark Vignette */}
-                <img
-                  src={slideImg}
-                  alt={item.name}
-                  className="w-full h-full object-cover transform scale-105 transition-transform duration-10000"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1600&q=80';
-                  }}
-                />
+                {shouldLoadImage && (
+                  <img
+                    src={slideImg}
+                    alt={item.name}
+                    className="w-full h-full object-cover transform scale-105 transition-transform duration-10000"
+                    loading={idx === 0 ? "eager" : "lazy"}
+                    decoding="async"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1600&q=80';
+                    }}
+                  />
+                )}
                 <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/55 to-black/20" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
 
@@ -918,7 +924,8 @@ export default function HomePage() {
           FEATURED SPOTLIGHT VIDEOS SCROLLER
           ========================================================================= */}
       {featuredVideos && featuredVideos.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4">
+        <LazyViewport minHeight="360px">
+          <section className="max-w-7xl mx-auto px-4">
           <div className="bg-gradient-to-r from-[#1C1F27] via-[#242938] to-[#1C1F27] border-2 border-brand-yellow/60 rounded-3xl p-5 sm:p-6 text-white shadow-xl relative overflow-hidden">
             {/* Background glow decoration */}
             <div className="absolute top-0 right-0 w-80 h-80 bg-brand-yellow/10 rounded-full blur-3xl pointer-events-none" />
@@ -992,6 +999,8 @@ export default function HomePage() {
                         src={thumb}
                         alt={vid.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                        loading="lazy"
+                        decoding="async"
                         onError={(e) => {
                           e.target.onerror = null;
                           e.target.src = 'https://images.unsplash.com/photo-1518173946687-a4c8a383392e?auto=format&fit=crop&w=600&q=80';
@@ -1038,6 +1047,7 @@ export default function HomePage() {
             </div>
           </div>
         </section>
+        </LazyViewport>
       )}
 
       {/* =========================================================================
@@ -1050,44 +1060,46 @@ export default function HomePage() {
         if (nameLower.includes('photo') || nameLower.includes('video')) {
           if (photoVideoServices.length === 0) return null;
           return (
-            <section key={div.id || 'photo'} className="max-w-7xl mx-auto px-4">
-              <div className="bg-gradient-to-br from-amber-50/70 via-white to-amber-100/40 border border-brand-yellow/40 rounded-3xl p-6 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
-                      <Camera className="w-6 h-6 text-brand-red" />
-                      <span>📸 {div.name}</span>
-                    </h2>
-                    <p className="text-xs text-brand-muted">
-                      {div.description || 'High-end wedding cinematography, portrait photography, 4K multi-cam coverage & drone videography'}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Link to={`/services?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
-                      View All {div.name} &rarr;
-                    </Link>
-                    {photoVideoServices.length > 3 && (
-                      <div className="flex gap-1">
-                        <button onClick={() => scrollContainer('photovideo-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Previous">
-                          <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => scrollContainer('photovideo-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Next">
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div id="photovideo-scroller" className="flex gap-4 overflow-x-auto pb-2 scrollbar-none snap-x">
-                  {photoVideoServices.map((s) => (
-                    <div key={s.id} className="min-w-[260px] sm:min-w-[320px] max-w-[320px] flex-shrink-0 snap-start">
-                      <ServiceCard service={s} />
+            <LazyViewport key={div.id || 'photo'} minHeight="420px">
+              <section className="max-w-7xl mx-auto px-4">
+                <div className="bg-gradient-to-br from-amber-50/70 via-white to-amber-100/40 border border-brand-yellow/40 rounded-3xl p-6 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
+                        <Camera className="w-6 h-6 text-brand-red" />
+                        <span>📸 {div.name}</span>
+                      </h2>
+                      <p className="text-xs text-brand-muted">
+                        {div.description || 'High-end wedding cinematography, portrait photography, 4K multi-cam coverage & drone videography'}
+                      </p>
                     </div>
-                  ))}
+                    <div className="flex items-center gap-2">
+                      <Link to={`/services?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
+                        View All {div.name} &rarr;
+                      </Link>
+                      {photoVideoServices.length > 3 && (
+                        <div className="flex gap-1">
+                          <button onClick={() => scrollContainer('photovideo-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Previous">
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => scrollContainer('photovideo-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Next">
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div id="photovideo-scroller" className="flex gap-4 overflow-x-auto pb-2 scrollbar-none snap-x">
+                    {photoVideoServices.map((s) => (
+                      <div key={s.id} className="min-w-[260px] sm:min-w-[320px] max-w-[320px] flex-shrink-0 snap-start">
+                        <ServiceCard service={s} />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </section>
+              </section>
+            </LazyViewport>
           );
         }
 
@@ -1095,44 +1107,46 @@ export default function HomePage() {
         if (nameLower.includes('wedding')) {
           if (weddingServices.length === 0) return null;
           return (
-            <section key={div.id || 'wedding'} className="max-w-7xl mx-auto px-4">
-              <div className="border border-brand-border rounded-3xl p-6 bg-white shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
-                      <HeartHandshake className="w-6 h-6 text-brand-red" />
-                      <span>💍 {div.name}</span>
-                    </h2>
-                    <p className="text-xs text-brand-muted">
-                      {div.description || 'Exquisite venue decoration, catering & buffet, sound & lighting, MCs, cakes & protocol'}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Link to={`/services?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
-                      View {div.name} &rarr;
-                    </Link>
-                    {weddingServices.length > 3 && (
-                      <div className="flex gap-1">
-                        <button onClick={() => scrollContainer('wedding-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Previous">
-                          <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => scrollContainer('wedding-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Next">
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div id="wedding-scroller" className="flex gap-4 overflow-x-auto pb-2 scrollbar-none snap-x">
-                  {weddingServices.map((s) => (
-                    <div key={s.id} className="min-w-[260px] sm:min-w-[300px] max-w-[300px] flex-shrink-0 snap-start">
-                      <ServiceCard service={s} />
+            <LazyViewport key={div.id || 'wedding'} minHeight="420px">
+              <section className="max-w-7xl mx-auto px-4">
+                <div className="border border-brand-border rounded-3xl p-6 bg-white shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
+                        <HeartHandshake className="w-6 h-6 text-brand-red" />
+                        <span>💍 {div.name}</span>
+                      </h2>
+                      <p className="text-xs text-brand-muted">
+                        {div.description || 'Exquisite venue decoration, catering & buffet, sound & lighting, MCs, cakes & protocol'}
+                      </p>
                     </div>
-                  ))}
+                    <div className="flex items-center gap-2">
+                      <Link to={`/services?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
+                        View {div.name} &rarr;
+                      </Link>
+                      {weddingServices.length > 3 && (
+                        <div className="flex gap-1">
+                          <button onClick={() => scrollContainer('wedding-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Previous">
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => scrollContainer('wedding-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Next">
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div id="wedding-scroller" className="flex gap-4 overflow-x-auto pb-2 scrollbar-none snap-x">
+                    {weddingServices.map((s) => (
+                      <div key={s.id} className="min-w-[260px] sm:min-w-[300px] max-w-[300px] flex-shrink-0 snap-start">
+                        <ServiceCard service={s} />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </section>
+              </section>
+            </LazyViewport>
           );
         }
 
@@ -1142,44 +1156,46 @@ export default function HomePage() {
           const cateringToDisplay = specificCatering.length > 0 ? specificCatering : cateringServices;
           if (cateringToDisplay.length === 0) return null;
           return (
-            <section key={div.id || 'catering'} className="max-w-7xl mx-auto px-4">
-              <div className="border border-brand-border rounded-3xl p-6 bg-white shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
-                      <Utensils className="w-6 h-6 text-brand-yellow" />
-                      <span>🍽️ {div.name}</span>
-                    </h2>
-                    <p className="text-xs text-brand-muted">
-                      {div.description || 'Chafing dishes, banquet tableware, warming trays, and professional event catering equipment rentals'}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Link to={`/services?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
-                      View {div.name} &rarr;
-                    </Link>
-                    {cateringToDisplay.length > 3 && (
-                      <div className="flex gap-1">
-                        <button onClick={() => scrollContainer(`catering-scroller-${div.id || 'cater'}`, 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Previous">
-                          <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => scrollContainer(`catering-scroller-${div.id || 'cater'}`, 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Next">
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div id={`catering-scroller-${div.id || 'cater'}`} className="flex gap-4 overflow-x-auto pb-2 scrollbar-none snap-x">
-                  {cateringToDisplay.map((s) => (
-                    <div key={s.id} className="min-w-[260px] sm:min-w-[320px] max-w-[320px] flex-shrink-0 snap-start">
-                      <ServiceCard service={s} />
+            <LazyViewport key={div.id || 'catering'} minHeight="420px">
+              <section className="max-w-7xl mx-auto px-4">
+                <div className="border border-brand-border rounded-3xl p-6 bg-white shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
+                        <Utensils className="w-6 h-6 text-brand-yellow" />
+                        <span>🍽️ {div.name}</span>
+                      </h2>
+                      <p className="text-xs text-brand-muted">
+                        {div.description || 'Chafing dishes, banquet tableware, warming trays, and professional event catering equipment rentals'}
+                      </p>
                     </div>
-                  ))}
+                    <div className="flex items-center gap-2">
+                      <Link to={`/services?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
+                        View {div.name} &rarr;
+                      </Link>
+                      {cateringToDisplay.length > 3 && (
+                        <div className="flex gap-1">
+                          <button onClick={() => scrollContainer(`catering-scroller-${div.id || 'cater'}`, 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Previous">
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => scrollContainer(`catering-scroller-${div.id || 'cater'}`, 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Next">
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div id={`catering-scroller-${div.id || 'cater'}`} className="flex gap-4 overflow-x-auto pb-2 scrollbar-none snap-x">
+                    {cateringToDisplay.map((s) => (
+                      <div key={s.id} className="min-w-[260px] sm:min-w-[320px] max-w-[320px] flex-shrink-0 snap-start">
+                        <ServiceCard service={s} />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </section>
+              </section>
+            </LazyViewport>
           );
         }
 
@@ -1189,44 +1205,46 @@ export default function HomePage() {
           const carToDisplay = specificCars.length > 0 ? specificCars : carRentalServices;
           if (carToDisplay.length === 0) return null;
           return (
-            <section key={div.id || 'car'} className="max-w-7xl mx-auto px-4">
-              <div className="bg-slate-50 border border-brand-border rounded-3xl p-6 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
-                      <Car className="w-6 h-6 text-brand-red" />
-                      <span>🚗 {div.name}</span>
-                    </h2>
-                    <p className="text-xs text-brand-muted">
-                      {div.description || 'Chauffeured Mercedes-Benz, V8 Land Cruisers, VIP Range Rovers, and bridal convoy coaches'}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Link to={`/services?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
-                      View Fleet &rarr;
-                    </Link>
-                    {carToDisplay.length > 3 && (
-                      <div className="flex gap-1">
-                        <button onClick={() => scrollContainer(`cars-scroller-${div.id || 'car'}`, 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Previous">
-                          <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => scrollContainer(`cars-scroller-${div.id || 'car'}`, 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Next">
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div id={`cars-scroller-${div.id || 'car'}`} className="flex gap-4 overflow-x-auto pb-2 scrollbar-none snap-x">
-                  {carToDisplay.map((s) => (
-                    <div key={s.id} className="min-w-[260px] sm:min-w-[320px] max-w-[320px] flex-shrink-0 snap-start">
-                      <ServiceCard service={s} />
+            <LazyViewport key={div.id || 'car'} minHeight="420px">
+              <section className="max-w-7xl mx-auto px-4">
+                <div className="bg-slate-50 border border-brand-border rounded-3xl p-6 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
+                        <Car className="w-6 h-6 text-brand-red" />
+                        <span>🚗 {div.name}</span>
+                      </h2>
+                      <p className="text-xs text-brand-muted">
+                        {div.description || 'Chauffeured Mercedes-Benz, V8 Land Cruisers, VIP Range Rovers, and bridal convoy coaches'}
+                      </p>
                     </div>
-                  ))}
+                    <div className="flex items-center gap-2">
+                      <Link to={`/services?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
+                        View Fleet &rarr;
+                      </Link>
+                      {carToDisplay.length > 3 && (
+                        <div className="flex gap-1">
+                          <button onClick={() => scrollContainer(`cars-scroller-${div.id || 'car'}`, 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Previous">
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => scrollContainer(`cars-scroller-${div.id || 'car'}`, 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Next">
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div id={`cars-scroller-${div.id || 'car'}`} className="flex gap-4 overflow-x-auto pb-2 scrollbar-none snap-x">
+                    {carToDisplay.map((s) => (
+                      <div key={s.id} className="min-w-[260px] sm:min-w-[320px] max-w-[320px] flex-shrink-0 snap-start">
+                        <ServiceCard service={s} />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </section>
+              </section>
+            </LazyViewport>
           );
         }
 
@@ -1234,44 +1252,46 @@ export default function HomePage() {
         if (nameLower.includes('consult')) {
           if (consultancyServices.length === 0) return null;
           return (
-            <section key={div.id || 'consult'} className="max-w-7xl mx-auto px-4">
-              <div className="border border-brand-border rounded-3xl p-6 bg-white shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
-                      <Briefcase className="w-6 h-6 text-brand-yellow" />
-                      <span>💼 {div.name}</span>
-                    </h2>
-                    <p className="text-xs text-brand-muted">
-                      {div.description || 'Expert business strategy, corporate event planning, financial planning & executive workshops'}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Link to={`/services?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
-                      View All {div.name} &rarr;
-                    </Link>
-                    {consultancyServices.length > 3 && (
-                      <div className="flex gap-1">
-                        <button onClick={() => scrollContainer('consultancy-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Previous">
-                          <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => scrollContainer('consultancy-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Next">
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div id="consultancy-scroller" className="flex gap-4 overflow-x-auto pb-4 scrollbar-none snap-x">
-                  {consultancyServices.map((s) => (
-                    <div key={s.id} className="min-w-[260px] sm:min-w-[300px] max-w-[300px] flex-shrink-0 snap-start">
-                      <ServiceCard service={s} />
+            <LazyViewport key={div.id || 'consult'} minHeight="420px">
+              <section className="max-w-7xl mx-auto px-4">
+                <div className="border border-brand-border rounded-3xl p-6 bg-white shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
+                        <Briefcase className="w-6 h-6 text-brand-yellow" />
+                        <span>💼 {div.name}</span>
+                      </h2>
+                      <p className="text-xs text-brand-muted">
+                        {div.description || 'Expert business strategy, corporate event planning, financial planning & executive workshops'}
+                      </p>
                     </div>
-                  ))}
+                    <div className="flex items-center gap-2">
+                      <Link to={`/services?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
+                        View All {div.name} &rarr;
+                      </Link>
+                      {consultancyServices.length > 3 && (
+                        <div className="flex gap-1">
+                          <button onClick={() => scrollContainer('consultancy-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Previous">
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => scrollContainer('consultancy-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Next">
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div id="consultancy-scroller" className="flex gap-4 overflow-x-auto pb-4 scrollbar-none snap-x">
+                    {consultancyServices.map((s) => (
+                      <div key={s.id} className="min-w-[260px] sm:min-w-[300px] max-w-[300px] flex-shrink-0 snap-start">
+                        <ServiceCard service={s} />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </section>
+              </section>
+            </LazyViewport>
           );
         }
 
@@ -1279,44 +1299,46 @@ export default function HomePage() {
         if (nameLower.includes('food') || nameLower.includes('beverage') || nameLower.includes('drink')) {
           if (foodProducts.length === 0) return null;
           return (
-            <section key={div.id || 'food'} className="max-w-7xl mx-auto px-4">
-              <div className="border border-brand-border rounded-3xl p-6 bg-white shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
-                      <Utensils className="w-6 h-6 text-brand-yellow" />
-                      <span>🍔 {div.name}</span>
-                    </h2>
-                    <p className="text-xs text-brand-muted">
-                      {div.description || 'Fresh natural juices, crate soft drinks, wholesale rice & catering food supplies'}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Link to={`/products?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
-                      View All {div.name} &rarr;
-                    </Link>
-                    {foodProducts.length > 3 && (
-                      <div className="flex gap-1">
-                        <button onClick={() => scrollContainer('food-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Previous">
-                          <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => scrollContainer('food-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Next">
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div id="food-scroller" className="flex gap-4 overflow-x-auto pb-4 scrollbar-none snap-x">
-                  {foodProducts.map((p) => (
-                    <div key={p.id} className="min-w-[240px] sm:min-w-[280px] max-w-[280px] flex-shrink-0 snap-start">
-                      <ProductCard product={p} />
+            <LazyViewport key={div.id || 'food'} minHeight="420px">
+              <section className="max-w-7xl mx-auto px-4">
+                <div className="border border-brand-border rounded-3xl p-6 bg-white shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
+                        <Utensils className="w-6 h-6 text-brand-yellow" />
+                        <span>🍔 {div.name}</span>
+                      </h2>
+                      <p className="text-xs text-brand-muted">
+                        {div.description || 'Fresh natural juices, crate soft drinks, wholesale rice & catering food supplies'}
+                      </p>
                     </div>
-                  ))}
+                    <div className="flex items-center gap-2">
+                      <Link to={`/products?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
+                        View All {div.name} &rarr;
+                      </Link>
+                      {foodProducts.length > 3 && (
+                        <div className="flex gap-1">
+                          <button onClick={() => scrollContainer('food-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Previous">
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => scrollContainer('food-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Next">
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div id="food-scroller" className="flex gap-4 overflow-x-auto pb-4 scrollbar-none snap-x">
+                    {foodProducts.map((p) => (
+                      <div key={p.id} className="min-w-[240px] sm:min-w-[280px] max-w-[280px] flex-shrink-0 snap-start">
+                        <ProductCard product={p} />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </section>
+              </section>
+            </LazyViewport>
           );
         }
 
@@ -1324,44 +1346,46 @@ export default function HomePage() {
         if (nameLower.includes('cloth') || nameLower.includes('shoe') || nameLower.includes('fashion') || nameLower.includes('apparel')) {
           if (clothesProducts.length === 0) return null;
           return (
-            <section key={div.id || 'clothes'} className="max-w-7xl mx-auto px-4">
-              <div className="border border-brand-border rounded-3xl p-6 bg-white shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
-                      <Shirt className="w-6 h-6 text-brand-yellow" />
-                      <span>👗 {div.name}</span>
-                    </h2>
-                    <p className="text-xs text-brand-muted">
-                      {div.description || 'Men & women shoes, dresses, suits, traditional Rwandan attire & sneakers'}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Link to={`/products?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
-                      View All {div.name} &rarr;
-                    </Link>
-                    {clothesProducts.length > 3 && (
-                      <div className="flex gap-1">
-                        <button onClick={() => scrollContainer('clothes-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Previous">
-                          <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => scrollContainer('clothes-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Next">
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div id="clothes-scroller" className="flex gap-4 overflow-x-auto pb-4 scrollbar-none snap-x">
-                  {clothesProducts.map((p) => (
-                    <div key={p.id} className="min-w-[240px] sm:min-w-[280px] max-w-[280px] flex-shrink-0 snap-start">
-                      <ProductCard product={p} />
+            <LazyViewport key={div.id || 'clothes'} minHeight="420px">
+              <section className="max-w-7xl mx-auto px-4">
+                <div className="border border-brand-border rounded-3xl p-6 bg-white shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
+                        <Shirt className="w-6 h-6 text-brand-yellow" />
+                        <span>👗 {div.name}</span>
+                      </h2>
+                      <p className="text-xs text-brand-muted">
+                        {div.description || 'Men & women shoes, dresses, suits, traditional Rwandan attire & sneakers'}
+                      </p>
                     </div>
-                  ))}
+                    <div className="flex items-center gap-2">
+                      <Link to={`/products?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
+                        View All {div.name} &rarr;
+                      </Link>
+                      {clothesProducts.length > 3 && (
+                        <div className="flex gap-1">
+                          <button onClick={() => scrollContainer('clothes-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Previous">
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => scrollContainer('clothes-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition" aria-label="Next">
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div id="clothes-scroller" className="flex gap-4 overflow-x-auto pb-4 scrollbar-none snap-x">
+                    {clothesProducts.map((p) => (
+                      <div key={p.id} className="min-w-[240px] sm:min-w-[280px] max-w-[280px] flex-shrink-0 snap-start">
+                        <ProductCard product={p} />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </section>
+              </section>
+            </LazyViewport>
           );
         }
 
@@ -1372,78 +1396,83 @@ export default function HomePage() {
         if (customProds.length === 0 && customSrvs.length === 0) return null;
 
         return (
-          <section key={div.id} className="max-w-7xl mx-auto px-4">
-            <div className="border border-brand-border rounded-3xl p-6 bg-white shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
-                    <Sparkles className="w-6 h-6 text-brand-yellow" />
-                    <span>{getCategoryEmoji(div.name)} {div.name}</span>
-                  </h2>
-                  <p className="text-xs text-brand-muted">{div.description || 'Dynamic business division catalog'}</p>
+          <LazyViewport key={div.id} minHeight="420px">
+            <section className="max-w-7xl mx-auto px-4">
+              <div className="border border-brand-border rounded-3xl p-6 bg-white shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
+                      <Sparkles className="w-6 h-6 text-brand-yellow" />
+                      <span>{getCategoryEmoji(div.name)} {div.name}</span>
+                    </h2>
+                    <p className="text-xs text-brand-muted">{div.description || 'Dynamic business division catalog'}</p>
+                  </div>
+                  <Link to={customProds.length > 0 ? `/products?division=${encodeURIComponent(div.name)}` : `/services?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
+                    Explore {div.name} &rarr;
+                  </Link>
                 </div>
-                <Link to={customProds.length > 0 ? `/products?division=${encodeURIComponent(div.name)}` : `/services?division=${encodeURIComponent(div.name)}`} className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
-                  Explore {div.name} &rarr;
-                </Link>
-              </div>
 
-              <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none snap-x">
-                {customProds.map((p) => (
-                  <div key={p.id} className="min-w-[240px] sm:min-w-[280px] max-w-[280px] flex-shrink-0 snap-start">
-                    <ProductCard product={p} />
-                  </div>
-                ))}
-                {customSrvs.map((s) => (
-                  <div key={s.id} className="min-w-[260px] sm:min-w-[300px] max-w-[300px] flex-shrink-0 snap-start">
-                    <ServiceCard service={s} />
-                  </div>
-                ))}
+                <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none snap-x">
+                  {customProds.map((p) => (
+                    <div key={p.id} className="min-w-[240px] sm:min-w-[280px] max-w-[280px] flex-shrink-0 snap-start">
+                      <ProductCard product={p} />
+                    </div>
+                  ))}
+                  {customSrvs.map((s) => (
+                    <div key={s.id} className="min-w-[260px] sm:min-w-[300px] max-w-[300px] flex-shrink-0 snap-start">
+                      <ServiceCard service={s} />
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
+          </LazyViewport>
         );
       })}
 
       {/* Special Offers (% On Sale) */}
       {specialOffers.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
-                <Flame className="w-6 h-6 text-brand-red fill-brand-red" />
-                <span>Special Offers & Deals (% Discount)</span>
-              </h2>
-              <p className="text-xs text-brand-muted">Save more with special limited discounts across products</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Link to="/products?onSale=true" className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
-                View All Offers &rarr;
-              </Link>
-              <div className="flex gap-1">
-                <button onClick={() => scrollContainer('offers-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button onClick={() => scrollContainer('offers-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+        <LazyViewport minHeight="380px">
+          <section className="max-w-7xl mx-auto px-4">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-2xl font-black text-brand-dark flex items-center gap-2">
+                  <Flame className="w-6 h-6 text-brand-red fill-brand-red" />
+                  <span>Special Offers & Deals (% Discount)</span>
+                </h2>
+                <p className="text-xs text-brand-muted">Save more with special limited discounts across products</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Link to="/products?onSale=true" className="text-xs font-bold text-brand-red hover:underline hidden sm:block">
+                  View All Offers &rarr;
+                </Link>
+                <div className="flex gap-1">
+                  <button onClick={() => scrollContainer('offers-scroller', 'left')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => scrollContainer('offers-scroller', 'right')} className="p-2 border rounded-full bg-white hover:bg-brand-yellow transition">
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div id="offers-scroller" className="flex gap-4 overflow-x-auto pb-4 scrollbar-none snap-x">
-            {specialOffers.map((p) => (
-              <div key={p.id} className="min-w-[240px] sm:min-w-[280px] max-w-[280px] flex-shrink-0 snap-start">
-                <ProductCard product={p} />
-              </div>
-            ))}
-          </div>
-        </section>
+            <div id="offers-scroller" className="flex gap-4 overflow-x-auto pb-4 scrollbar-none snap-x">
+              {specialOffers.map((p) => (
+                <div key={p.id} className="min-w-[240px] sm:min-w-[280px] max-w-[280px] flex-shrink-0 snap-start">
+                  <ProductCard product={p} />
+                </div>
+              ))}
+            </div>
+          </section>
+        </LazyViewport>
       )}
 
       {/* =========================================================================
           WHATSAPP QUICK ORDER BANNER
           ========================================================================= */}
-      <section className="max-w-7xl mx-auto px-4">
+      <LazyViewport minHeight="180px">
+        <section className="max-w-7xl mx-auto px-4">
         <div className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white rounded-3xl p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
           <div>
             <span className="bg-white/20 text-white text-[11px] font-black px-3 py-1 rounded-full uppercase tracking-wider inline-block mb-2">
@@ -1464,7 +1493,8 @@ export default function HomePage() {
             <span>Chat on WhatsApp (+250 786 639 945)</span>
           </a>
         </div>
-      </section>
+        </section>
+      </LazyViewport>
     </div>
   );
 }
