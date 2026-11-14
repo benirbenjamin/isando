@@ -32,6 +32,9 @@ router.post('/', authenticateToken, hasPermission('sales.create'), async (req, r
         if (!product) throw new Error(`Product ${productId} not found`);
 
         const price = unitPrice !== undefined ? parseFloat(unitPrice) : product.salePrice;
+        if (isNaN(price) || price < 0 || !Number.isFinite(price)) {
+          throw new Error(`Invalid unit price for product ${product.name}`);
+        }
         const lineTotal = price * qty;
         totalAmount += lineTotal;
 

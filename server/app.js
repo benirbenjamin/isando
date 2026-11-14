@@ -28,6 +28,7 @@ import uploadRoutes from './routes/upload.js';
 import customersRoutes from './routes/customers.js';
 import videoRoutes from './routes/videos.js';
 import prisma from './database/prisma.js';
+import { authenticateToken } from './middleware/auth.js';
 
 dotenv.config();
 
@@ -38,6 +39,16 @@ const app = express();
 
 // Middleware
 app.use(cors());
+
+// Essential HTTP Security Headers
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+});
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
@@ -77,7 +88,10 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.get('/api/db-diagnostics', async (req, res) => {
+app.get('/api/db-diagnostics', authenticateToken, async (req, res) => {
+  if (!req.user.isSuperAdmin) {
+    return res.status(403).json({ error: 'Access denied. Requires Super Administrator privilege.' });
+  }
   const dbUrl = (process.env.DATABASE_URL || '').trim();
   const maskedUrl = dbUrl.replace(/:([^:@]+)@/, ':****@');
   console.log('🔍 [DB Diagnostics] Checking database connection with URL:', maskedUrl);
@@ -125,6 +139,18 @@ app.get('/api/db-diagnostics', async (req, res) => {
       }
     });
   }
+});
+
+// Global Express Error Handler - sanitize internal stack traces
+app.use((err, req, res, next) => {
+  console.error('Unhandled Server Error:', err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  const isProduction = process.env.NODE_ENV === 'production';
+  return res.status(err.status || 500).json({
+    error: isProduction ? 'An unexpected internal error occurred.' : (err.message || 'Internal server error'),
+  });
 });
 
 export default app;

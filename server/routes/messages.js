@@ -1,13 +1,14 @@
 import express from 'express';
 import prisma from '../database/prisma.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { publicContactLimiter } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
 
 /**
  * Public Contact Form Submission -> Sent to App Inbox
  */
-router.post('/public-inbox', async (req, res) => {
+router.post('/public-inbox', publicContactLimiter, async (req, res) => {
   try {
     const { name, email, phone, subject, message } = req.body;
     if (!name || !email || !message) {
@@ -243,6 +244,11 @@ router.post('/conversations/:id/members', authenticateToken, async (req, res) =>
       return res.status(404).json({ error: 'Conversation not found' });
     }
 
+    const isCallerMember = conv.members.some(m => m.userId === req.user.id);
+    if (!isCallerMember && !req.user.isAdmin) {
+      return res.status(403).json({ error: 'Access denied: You must be a member of this conversation to add others.' });
+    }
+
     const addedUsers = [];
     for (const uId of idsToAdd) {
       const alreadyMember = conv.members.some(m => m.userId === uId);
@@ -398,12 +404,25 @@ async function executeSendMessage(req, res, conversationId, text, attachments) {
       return res.status(404).json({ error: 'Conversation thread not found' });
     }
 
-    // Auto-ensure user membership in conversation
-    await prisma.conversationMember.upsert({
-      where: { conversationId_userId: { conversationId, userId: req.user.id } },
-      update: { lastReadAt: new Date() },
-      create: { conversationId, userId: req.user.id }
-    }).catch(() => {});
+    // Verify user is an authorized member of this conversation
+    const existingMembership = await prisma.conversationMember.findUnique({
+      where: { conversationId_userId: { conversationId, userId: req.user.id } }
+    });
+
+    if (!existingMembership && !req.user.isAdmin) {
+      return res.status(403).json({ error: 'Access denied: You are not a member of this conversation' });
+    }
+
+    if (existingMembership) {
+      await prisma.conversationMember.update({
+        where: { conversationId_userId: { conversationId, userId: req.user.id } },
+        data: { lastReadAt: new Date() }
+      }).catch(() => {});
+    } else if (req.user.isAdmin) {
+      await prisma.conversationMember.create({
+        data: { conversationId, userId: req.user.id, lastReadAt: new Date() }
+      }).catch(() => {});
+    }
 
     const message = await prisma.message.create({
       data: {

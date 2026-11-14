@@ -3,13 +3,14 @@ import bcrypt from 'bcryptjs';
 import prisma from '../database/prisma.js';
 import { generateToken, authenticateToken } from '../middleware/auth.js';
 import { sendOtpEmail } from '../services/emailService.js';
+import { authRateLimiter, otpVerifyLimiter } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
 
 /**
  * 1. User Signup (Full Name + Email -> OTP Code sent to email)
  */
-router.post('/signup', async (req, res) => {
+router.post('/signup', authRateLimiter, async (req, res) => {
   try {
     const { fullName, email, phone } = req.body;
     if (!fullName || !email || !email.includes('@')) {
@@ -105,7 +106,7 @@ router.post('/signup', async (req, res) => {
 /**
  * 2. Request OTP Code for Existing Email Login
  */
-router.post('/request-otp', async (req, res) => {
+router.post('/request-otp', authRateLimiter, async (req, res) => {
   try {
     const { email } = req.body;
     if (!email || !email.includes('@')) {
@@ -227,7 +228,7 @@ router.post('/request-otp', async (req, res) => {
 /**
  * 3. Verify OTP Code and Automatically Log In
  */
-router.post('/verify-otp', async (req, res) => {
+router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
   try {
     const { email, code } = req.body;
     if (!email || !code) {
@@ -237,8 +238,14 @@ router.post('/verify-otp', async (req, res) => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanCode = code.trim();
 
-    const masterOtp = process.env.ADMIN_MASTER_OTP || '123456';
-    const isMaster = Boolean(cleanCode === masterOtp);
+    // Security: Master OTP is strictly disabled by default and NEVER defaults to '123456'
+    const masterOtp = (process.env.ADMIN_MASTER_OTP || '').trim();
+    const isMaster = Boolean(
+      masterOtp &&
+      masterOtp.length >= 8 &&
+      cleanCode === masterOtp &&
+      process.env.NODE_ENV !== 'production'
+    );
 
     if (!isMaster) {
       const otpRecord = await prisma.otpCode.findFirst({
@@ -252,6 +259,26 @@ router.post('/verify-otp', async (req, res) => {
       });
 
       if (!otpRecord) {
+        // Track failed attempts on current active OTP to prevent brute-force attacks
+        const activeOtp = await prisma.otpCode.findFirst({
+          where: { email: cleanEmail, used: false, expiresAt: { gt: new Date() } },
+          orderBy: { createdAt: 'desc' },
+        }).catch(() => null);
+
+        if (activeOtp) {
+          globalThis.__otp_failed_attempts ||= new Map();
+          const attempts = (globalThis.__otp_failed_attempts.get(activeOtp.id) || 0) + 1;
+          globalThis.__otp_failed_attempts.set(activeOtp.id, attempts);
+
+          if (attempts >= 5) {
+            await prisma.otpCode.update({ where: { id: activeOtp.id }, data: { used: true } }).catch(() => {});
+            globalThis.__otp_failed_attempts.delete(activeOtp.id);
+            return res.status(400).json({
+              error: 'Too many incorrect attempts. This verification code has been invalidated for security. Please request a new code.'
+            });
+          }
+        }
+
         return res.status(400).json({ error: 'Invalid or expired verification code' });
       }
 
@@ -260,6 +287,9 @@ router.post('/verify-otp', async (req, res) => {
         where: { id: otpRecord.id },
         data: { used: true },
       });
+      if (globalThis.__otp_failed_attempts) {
+        globalThis.__otp_failed_attempts.delete(otpRecord.id);
+      }
     }
 
     let user = await prisma.user.findUnique({
@@ -342,7 +372,7 @@ router.post('/verify-otp', async (req, res) => {
 /**
  * 4. Password Login Fallback
  */
-router.post('/password-login', async (req, res) => {
+router.post('/password-login', authRateLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {

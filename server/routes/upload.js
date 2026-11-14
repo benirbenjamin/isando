@@ -1,11 +1,46 @@
 import express from 'express';
 import multer from 'multer';
+import path from 'path';
 import { authenticateToken } from '../middleware/auth.js';
 import { uploadFile } from '../services/storageService.js';
 
 const router = express.Router();
+
+const ALLOWED_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/plain',
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+  'audio/mpeg',
+  'audio/mp4'
+]);
+
+const BLOCKED_EXTENSIONS = new Set([
+  '.html', '.htm', '.svg', '.js', '.mjs', '.php', '.phtml', '.php3', '.php4', '.php5',
+  '.exe', '.bat', '.cmd', '.sh', '.vbs', '.jsp', '.asp', '.aspx', '.cgi', '.dll', '.jar'
+]);
+
+function fileFilter(req, file, cb) {
+  const ext = (path.extname(file.originalname || '')).toLowerCase();
+  if (BLOCKED_EXTENSIONS.has(ext)) {
+    return cb(new Error(`File extension '${ext}' is blocked for security reasons.`));
+  }
+  if (!ALLOWED_MIME_TYPES.has(file.mimetype.toLowerCase())) {
+    return cb(new Error(`MIME type '${file.mimetype}' is not supported.`));
+  }
+  cb(null, true);
+}
+
 const upload = multer({
   limits: { fileSize: 15 * 1024 * 1024 }, // 15 MB limit per individual request
+  fileFilter,
 });
 
 // In-memory chunk store for reassembling chunked uploads
@@ -61,6 +96,11 @@ router.post('/chunk', authenticateToken, upload.single('chunk'), async (req, res
 
     if (!uploadId || chunkIndex === undefined || !totalChunks || !req.file) {
       return res.status(400).json({ error: 'Missing chunk metadata or file slice' });
+    }
+
+    const fileExt = (path.extname(originalName || '')).toLowerCase();
+    if (BLOCKED_EXTENSIONS.has(fileExt)) {
+      return res.status(400).json({ error: `File extension '${fileExt}' is blocked for security reasons.` });
     }
 
     const cIndex = parseInt(chunkIndex, 10);

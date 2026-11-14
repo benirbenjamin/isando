@@ -57,6 +57,12 @@ router.post('/', authenticateToken, hasPermission('users.create'), async (req, r
     const { name, description, permissionCodes } = req.body;
     if (!name) return res.status(400).json({ error: 'Role name is required' });
 
+    // Privilege escalation protection
+    const hasAdminPerms = Array.isArray(permissionCodes) && permissionCodes.some(c => c === '*' || c.startsWith('settings.') || c === 'users.edit');
+    if ((name.toLowerCase().includes('admin') || hasAdminPerms) && !req.user.isSuperAdmin) {
+      return res.status(403).json({ error: 'Only Super Administrators can create administrative roles or grant wildcard/settings permissions' });
+    }
+
     const existing = await prisma.role.findUnique({ where: { name } });
     if (existing) return res.status(400).json({ error: 'A role with this name already exists' });
 
@@ -92,6 +98,16 @@ router.put('/:id', authenticateToken, hasPermission('users.edit'), async (req, r
 
     const role = await prisma.role.findUnique({ where: { id: roleId } });
     if (!role) return res.status(404).json({ error: 'Role not found' });
+
+    // Privilege escalation protection
+    if (role.isSystem && !req.user.isSuperAdmin) {
+      return res.status(403).json({ error: 'Only Super Administrators can modify system roles' });
+    }
+
+    const hasAdminPerms = Array.isArray(permissionCodes) && permissionCodes.some(c => c === '*' || c.startsWith('settings.') || c === 'users.edit');
+    if (hasAdminPerms && !req.user.isSuperAdmin) {
+      return res.status(403).json({ error: 'Only Super Administrators can grant administrative or wildcard permissions' });
+    }
 
     await prisma.role.update({
       where: { id: roleId },

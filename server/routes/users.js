@@ -65,6 +65,18 @@ router.post('/', authenticateToken, hasPermission('users.create'), async (req, r
       return res.status(400).json({ error: 'A user with this email already exists' });
     }
 
+    // Guard against privilege escalation
+    if (roleId) {
+      const assignedRole = await prisma.role.findUnique({
+        where: { id: roleId },
+        include: { permissions: { include: { permission: true } } }
+      });
+      const hasWildcard = assignedRole?.permissions?.some(p => p.permission?.code === '*');
+      if ((assignedRole?.name === 'Super Administrator' || hasWildcard) && !req.user.isSuperAdmin) {
+        return res.status(403).json({ error: 'Only Super Administrators can create or assign a Super Administrator role' });
+      }
+    }
+
     const defaultPass = password || 'Romantic2026!';
     const passwordHash = await bcrypt.hash(defaultPass, 10);
 
@@ -112,6 +124,40 @@ router.put('/:id', authenticateToken, hasPermission('users.edit'), async (req, r
   try {
     const { fullName, phone, roleId, departmentId, businessDivisionId, status, profileImage } = req.body;
 
+    const targetUser = await prisma.user.findUnique({
+      where: { id: req.params.id },
+      include: { role: { include: { permissions: { include: { permission: true } } } } }
+    });
+    if (!targetUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const isTargetSuperAdmin = (targetUser.email && targetUser.email.toLowerCase() === 'romantictsolutions@gmail.com') ||
+      targetUser.role?.name === 'Super Administrator' ||
+      targetUser.role?.permissions?.some(p => p.permission?.code === '*');
+
+    // Prevent non-super-admins from modifying super admins
+    if (isTargetSuperAdmin && !req.user.isSuperAdmin) {
+      return res.status(403).json({ error: 'Only Super Administrators can modify a Super Administrator account' });
+    }
+
+    // Prevent users from escalating their own role or status
+    if (req.params.id === req.user.id && (roleId || status)) {
+      return res.status(400).json({ error: 'You cannot alter your own role or account status' });
+    }
+
+    // If assigning a new role, prevent non-super-admins from granting Super Administrator
+    if (roleId && roleId !== targetUser.roleId) {
+      const newRole = await prisma.role.findUnique({
+        where: { id: roleId },
+        include: { permissions: { include: { permission: true } } }
+      });
+      const newRoleHasWildcard = newRole?.permissions?.some(p => p.permission?.code === '*');
+      if ((newRole?.name === 'Super Administrator' || newRoleHasWildcard) && !req.user.isSuperAdmin) {
+        return res.status(403).json({ error: 'Only Super Administrators can assign a Super Administrator role' });
+      }
+    }
+
     const updated = await prisma.user.update({
       where: { id: req.params.id },
       data: {
@@ -155,6 +201,22 @@ router.put('/:id/reset-password', authenticateToken, hasPermission('users.edit')
     const { newPassword } = req.body;
     if (!newPassword || newPassword.length < 6) {
       return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    }
+
+    const targetUser = await prisma.user.findUnique({
+      where: { id: req.params.id },
+      include: { role: { include: { permissions: { include: { permission: true } } } } }
+    });
+    if (!targetUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const isTargetSuperAdmin = (targetUser.email && targetUser.email.toLowerCase() === 'romantictsolutions@gmail.com') ||
+      targetUser.role?.name === 'Super Administrator' ||
+      targetUser.role?.permissions?.some(p => p.permission?.code === '*');
+
+    if (isTargetSuperAdmin && !req.user.isSuperAdmin) {
+      return res.status(403).json({ error: 'Only Super Administrators can reset a Super Administrator password' });
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
@@ -213,6 +275,7 @@ router.delete('/:id', authenticateToken, hasPermission('users.edit'), async (req
 
     const targetUser = await prisma.user.findUnique({
       where: { id: targetUserId },
+      include: { role: { include: { permissions: { include: { permission: true } } } } }
     });
 
     if (!targetUser) {
@@ -220,8 +283,14 @@ router.delete('/:id', authenticateToken, hasPermission('users.edit'), async (req
     }
 
     const protectedAdmins = ['romantictsolutions@gmail.com'];
-    if (protectedAdmins.includes(targetUser.email.toLowerCase())) {
+    if (targetUser.email && protectedAdmins.includes(targetUser.email.toLowerCase())) {
       return res.status(403).json({ error: 'The primary system Super Administrator cannot be deleted' });
+    }
+
+    const isTargetSuperAdmin = targetUser.role?.name === 'Super Administrator' ||
+      targetUser.role?.permissions?.some(p => p.permission?.code === '*');
+    if (isTargetSuperAdmin && !req.user.isSuperAdmin) {
+      return res.status(403).json({ error: 'Only Super Administrators can delete an administrator account' });
     }
 
     // Clean up dependent records safely

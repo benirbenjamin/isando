@@ -1,7 +1,17 @@
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import prisma from '../database/prisma.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'romantic_t_solutions_super_secret_jwt_key_2026';
+// Prevent token forgery: Never use predictable hardcoded keys in production
+if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
+  console.warn('⚠️ [SECURITY NOTICE] JWT_SECRET is not set in environment variables! Using secure runtime ephemeral key.');
+}
+
+const JWT_SECRET = process.env.JWT_SECRET || (
+  process.env.NODE_ENV === 'production'
+    ? (globalThis.__ephemeral_jwt_secret ||= crypto.randomBytes(48).toString('hex'))
+    : 'romantic_dev_secret_jwt_key_local_only'
+);
 
 export async function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];

@@ -27,11 +27,23 @@ async function getSetting(key) {
   }
 }
 
+function sanitizeFileName(originalName) {
+  const base = path.basename(originalName || 'file');
+  const safeBase = base.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const ext = (path.extname(safeBase) || '').toLowerCase();
+  const dangerousExts = ['.html', '.htm', '.svg', '.js', '.mjs', '.php', '.exe', '.sh', '.bat', '.cgi'];
+  if (dangerousExts.includes(ext)) {
+    return `${safeBase.replace(ext, '')}.bin`;
+  }
+  return safeBase;
+}
+
 /**
  * Upload to local disk
  */
 function uploadToLocal(fileBuffer, originalName) {
-  const ext = path.extname(originalName) || '.jpg';
+  const safeName = sanitizeFileName(originalName);
+  const ext = path.extname(safeName) || '.jpg';
   const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}${ext}`;
   const filePath = path.join(UPLOADS_DIR, fileName);
   fs.writeFileSync(filePath, fileBuffer);
@@ -46,7 +58,8 @@ async function uploadToVercelBlob(fileBuffer, originalName) {
   if (!token) {
     throw new Error('BLOB_READ_WRITE_TOKEN missing in environment or settings');
   }
-  const blob = await vercelPut(`uploads/${Date.now()}-${originalName}`, fileBuffer, {
+  const safeName = sanitizeFileName(originalName);
+  const blob = await vercelPut(`uploads/${Date.now()}-${safeName}`, fileBuffer, {
     access: 'public',
     token,
   });
@@ -85,8 +98,9 @@ async function uploadToGoogleDriveAccount(fileBuffer, originalName, accountConfi
   stream.push(fileBuffer);
   stream.push(null);
 
+  const safeName = sanitizeFileName(originalName);
   const fileMetadata = {
-    name: `${Date.now()}-${originalName}`,
+    name: `${Date.now()}-${safeName}`,
     parents: accountConfig.folderId ? [accountConfig.folderId] : [],
   };
   const media = {

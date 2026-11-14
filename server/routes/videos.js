@@ -1,6 +1,6 @@
 import express from 'express';
 import prisma, { withDbRetry } from '../database/prisma.js';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken, hasPermission } from '../middleware/auth.js';
 import {
   extractYouTubeId,
   fetchYouTubeVideoInfo,
@@ -62,7 +62,7 @@ router.get('/', async (req, res) => {
  * Admin: Get YouTube Channel Configuration & Sync Status
  * MUST be before /:id parameterized route
  */
-router.get('/channel-config/status', authenticateToken, async (req, res) => {
+router.get('/channel-config/status', authenticateToken, hasPermission('settings.manage'), async (req, res) => {
   try {
     const [channelSetting, lastSyncSetting] = await Promise.all([
       prisma.setting.findUnique({ where: { key: 'youtube_channel_id' } }).catch(() => null),
@@ -85,7 +85,7 @@ router.get('/channel-config/status', authenticateToken, async (req, res) => {
 /**
  * Admin: Save YouTube Channel ID & Preferences
  */
-router.post('/channel-config', authenticateToken, async (req, res) => {
+router.post('/channel-config', authenticateToken, hasPermission('settings.manage'), async (req, res) => {
   try {
     const { channelId, autoSyncNow = true } = req.body;
 
@@ -120,7 +120,7 @@ router.post('/channel-config', authenticateToken, async (req, res) => {
 /**
  * Admin: Trigger Manual Sync from YouTube Channel
  */
-router.post('/sync', authenticateToken, async (req, res) => {
+router.post('/sync', authenticateToken, hasPermission('settings.manage'), async (req, res) => {
   try {
     const { channelId } = req.body;
     const result = await syncYouTubeChannel(channelId || null);
@@ -150,7 +150,7 @@ router.post('/fetch-youtube-info', async (req, res) => {
 /**
  * Admin: Create a Video (YouTube or Uploaded)
  */
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticateToken, hasPermission('products.create'), async (req, res) => {
   try {
     const {
       title,
@@ -270,7 +270,7 @@ router.get('/:id', async (req, res) => {
 /**
  * Admin: Update Video Details
  */
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put('/:id', authenticateToken, hasPermission('products.edit'), async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -315,7 +315,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 /**
  * Admin: Delete Video
  */
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', authenticateToken, hasPermission('products.edit'), async (req, res) => {
   try {
     const { id } = req.params;
     await prisma.video.delete({ where: { id } });

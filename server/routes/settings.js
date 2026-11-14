@@ -1,9 +1,28 @@
 import express from 'express';
+import jwt from 'jsonwebtoken';
 import prisma from '../database/prisma.js';
 import { authenticateToken, hasPermission } from '../middleware/auth.js';
 import { sendEmail } from '../services/emailService.js';
 
 const router = express.Router();
+
+const PUBLIC_SETTING_KEYS = new Set([
+  'company_name',
+  'company_phone',
+  'company_email',
+  'company_address',
+  'company_working_hours',
+  'company_tagline',
+  'currency',
+  'social_facebook',
+  'social_instagram',
+  'social_youtube',
+  'social_twitter',
+  'social_whatsapp',
+  'about_story',
+  'about_vision',
+  'about_mission'
+]);
 
 const GOOGLE_DRIVE_INSTRUCTIONS = `
 ============================================================
@@ -63,18 +82,45 @@ To allow Romantic T Solutions platform to save images and documents across multi
 
 /**
  * Public & Admin: Get All System Settings
+ * Non-admins receive ONLY safe public keys (e.g. phone, address).
+ * Sensitive secrets (OAuth tokens, API keys, SMTP credentials) require settings.manage permission.
  */
 router.get('/', async (req, res) => {
   try {
+    let isAdminUser = false;
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (token) {
+      try {
+        const decoded = jwt.decode(token);
+        if (decoded?.userId) {
+          const user = await prisma.user.findUnique({
+            where: { id: decoded.userId },
+            include: { role: { include: { permissions: { include: { permission: true } } } } }
+          });
+          if (user && user.status === 'ACTIVE') {
+            const perms = user.role?.permissions.map(rp => rp.permission.code) || [];
+            const cleanEmail = (user.email || '').trim().toLowerCase();
+            const isSuper = ['romantictsolutions@gmail.com', 'benirabok@gmail.com'].includes(cleanEmail) || user.role?.name?.toLowerCase().includes('super');
+            isAdminUser = isSuper || user.role?.name?.toLowerCase().includes('admin') || perms.includes('*') || perms.includes('settings.manage');
+          }
+        }
+      } catch (_) {}
+    }
+
     const settings = await prisma.setting.findMany();
     const settingsMap = {};
+
     for (const s of settings) {
-      settingsMap[s.key] = s.value;
+      if (isAdminUser || PUBLIC_SETTING_KEYS.has(s.key)) {
+        settingsMap[s.key] = s.value;
+      }
     }
 
     return res.json({
       settings: settingsMap,
-      googleDriveGuide: GOOGLE_DRIVE_INSTRUCTIONS,
+      ...(isAdminUser && { googleDriveGuide: GOOGLE_DRIVE_INSTRUCTIONS }),
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });
